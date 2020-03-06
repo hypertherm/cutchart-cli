@@ -36,7 +36,7 @@ Find out what Hypertherm product families have cut chart data available.
 	cc-cli families
 	
 The request and response for the families endpoint could look like this:
-![This is an example](https://github.com/hypertherm/cc-cli/blob/ART-5857-Update-README-for-cc-cli.exe/imgs/BasicExample_Which_Families_Have_Cut_Charts.jpg?raw=true)
+![This is an example](https://github.com/hypertherm/cutchart-cli/blob/master/imgs/BasicExample_Which_Families_Have_Cut_Charts.jpg?raw=true)
 
 ## Optional arguments
 
@@ -59,21 +59,21 @@ These are the available command arguments:
       cc-cli -h
 
      The request and response for viewing commands and arguments could look like this:
-	![This is a graphic example of requesting help from the command line](https://github.com/hypertherm/cc-cli/blob/ART-5857-Update-README-for-cc-cli.exe/imgs/Example_SeeHelp.jpg?raw=true)
+	![This is a graphic example of requesting help from the command line](https://github.com/hypertherm/cutchart-cli/blob/master/imgs/Example_SeeHelp.jpg?raw=true)
  
 - Find the Powermax models with available cut chart data.
 
       cc-cli models -f powermax
       
      The request and response for identifying supported Powermax models could look like this:
-	![This is a graphic example of identifying supported Powermax models from the command line](https://github.com/hypertherm/cc-cli/blob/ART-5857-Update-README-for-cc-cli.exe/imgs/Example_Models_with_CCdata.jpg?raw=true)
+	![This is a graphic example of identifying supported Powermax models from the command line](https://github.com/hypertherm/cutchart-cli/blob/master/imgs/Example_Models_with_CCdata.jpg?raw=true)
 
 - Download modified Powermax105 cut chart data, based on the provided XML file.
 
       cc-cli customs -f powermax -m 105 -x myStyle.xml -o cc.xlsx
       
      The request and response for uploading an XML file (*myStyle.xml*) to the customs endpoint and downloading the updated Powermax105 cut chart data outfile (*cc.xlsx*) could look like this:
-     ![This is an example of customizing cut chart data with an XML file from the command line](https://github.com/hypertherm/cc-cli/blob/ART-5857-Update-README-for-cc-cli.exe/imgs/Example_custom-cc-request.jpg?raw=true)
+     ![This is an example of customizing cut chart data with an XML file from the command line](https://github.com/hypertherm/cutchart-cli/blob/master/imgs/Example_custom-cc-request.jpg?raw=true)
      
      **In this example:**
      
