@@ -1,0 +1,42 @@
+﻿<?xml version='1.0' encoding='utf-8'?>
+<Document units='english' productfamily='88' cutcharts='N'>
+  <Column name='cut_chart_type' omit='true'/><!--omit an existing column-->
+  <Column name='kerf'><!--modifying existing column-->
+    <Cell color='255,0,0'/><!--sets background color of all cells in the column, columnname is not required because the name of the column element is automatically used-->
+  </Column>
+  <Column name='profile_area' index='I'/><!--move column, index accepts excel letter index or 0 based integer index-->
+  <Column name='empty_column' index='4'/><!--index is not reccommended because it is only honored for initial order, this pushes profile_area to index='J'-->
+  <Column name='diameter_feedrate' before='empty_column'><!--this pushes empty_column to index='5' and profile_area to index='K'-->
+    <Cell formula='true'>{diameter}{row}*{base_feedrate}{row}</Cell><!--accepts normal excel syntax except that columns need to be called out by name in {column_name} and current row number by {row}-->
+  </Column>
+  <Column name='arbitrary_value'><!--creates a new column that will default to being the last column-->
+    <Cell>25</Cell><!--constant value for the whole column-->
+  </Column>
+  <Record material='MS' thickness='*' class='65A Shielded Air'><!--select oracle record/s, oracle recordss won't show up in excell unless they are selected and have a row generated from them-->
+    <Row profile_type='*' diameter='*' feedrate_pct='81'/><!--generates a row based on the selected oracle record/s-->
+    <Row profile_type='I' diameter='*' feedrate_pct='74'/>
+  </Record>
+  <Record material='MS' thickness='*' class='105A SYNC Air'>
+    <Row profile_type='*' diameter='*' feedrate_pct='100'/>
+    <Row profile_type='I' diameter='*' feedrate_pct='100'/>
+    <Row profile_type='H' diameter='2' feedrate_pct='100'>
+      <Cell columnname='feedrate_pct' color='178,173,127' 
+      note='This value is for reference only. It is not used during output for True Hole. AHC is off'/><!--sets the background color and adds a note to the cell in this row-->
+    </Row>
+    <Row profile_type='H' diameter='1' feedrate_pct='100'>
+      <Cell columnname='feedrate_pct' color='178,173,127' note='This value is for reference only. It is not used during output for True Hole. AHC is off'/>
+    </Row>
+  </Record>
+  <Record material='MS' thickness='*' class='85A Shielded Air'>
+    <Row profile_type='*' diameter='*' feedrate_pct='100'/>
+    <Row profile_type='I' diameter='5' feedrate_pct='80'/>
+    <Row profile_type='I' diameter='3' feedrate_pct='60'/>
+    <Row profile_type='I' diameter='1' feedrate_pct='40'/>
+  </Record>
+  <Record material='*' thickness='*' class='*'><!--selects all oracle records that havent been selected yet-->
+    <Row profile_type='*' diameter='*' feedrate_pct='100'/>
+    <Row profile_type='I' diameter='5' feedrate_pct='80'/>
+    <Row profile_type='I' diameter='3' feedrate_pct='60' disable_ahc='true'/>
+    <Row profile_type='I' diameter='1' feedrate_pct='40' disable_ahc='true'/>
+  </Record>
+</Document>
