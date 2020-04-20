@@ -34,20 +34,22 @@ Find out what Hypertherm products have cut chart data available.
 	cc-cli products
 
 The request and response for the products endpoint could look like this:
-![This is an example](https://github.com/hypertherm/cutchart-cli/blob/master/imgs/BasicExample_Which_Families_Have_Cut_Charts.jpg?raw=true)
+![This is an example](https://github.com/hypertherm/docs/blob/master/cutchart-api/BasicExample_Which_Families_Have_Cut_Charts%5B1%5D.jpg?raw=true)
 
 ## Optional arguments
 
 These are the available command arguments:
 
 - **[-h | --help]**
+- **[-v | --version]**
+- **[-d | --dumplog]**
+- **[-c | --clearlog]**
 - **[-p | --product]**
 - **[-o | --outfile]**
 - **[-x | --xmlfile]**
 - **[-u | --units]**
 - **[-t | --type]**
 - **[-l | --logout]**
-- **[-v | --version]**
 
 ### Examples
 
@@ -56,14 +58,14 @@ These are the available command arguments:
       cc-cli -h
 
      The request and response for viewing commands and arguments could look like this:
-	![This is a graphic example of requesting help from the command line](https://github.com/hypertherm/cutchart-cli/blob/master/imgs/Example_SeeHelp.jpg?raw=true)
+	![This is an example request for help from the command line](https://github.com/hypertherm/docs/blob/master/cutchart-api/Example_SeeHelp%5B1%5D.jpg?raw=true)
 
 - Download modified Powermax105 cut chart data, based on the provided XML file.
 
       cc-cli customs -p powermax105 -x myStyle.xml -o cc.xlsx
 
      The request and response for uploading an XML file (*myStyle.xml*) to the customs endpoint and downloading the updated Powermax105 cut chart data outfile (*cc.xlsx*) could look like this:
-     ![This is an example of customizing cut chart data with an XML file from the command line](https://github.com/hypertherm/cutchart-cli/blob/master/imgs/Example_custom-cc-request.jpg?raw=true)
+     ![This is an example of customizing cut chart data with an XML file from the command line](https://github.com/hypertherm/docs/blob/master/cutchart-api/Example_custom-cc-request%5B1%5D.jpg?raw=true)
 
      **In this example:**
 
@@ -72,3 +74,13 @@ These are the available command arguments:
      - **cc.xlsx** is automatically created to provide updated cut chart data. Once the "Success" response is returned, look for this file in the same location as your XML file.
 
      Name the XML file and the outfile whatever you want.
+
+- Interact with the Log file
+
+     Print out the entire log history.
+     
+      cc-cli --dumplog
+
+     Clear the log history.
+
+      cc-cli --clearlog
