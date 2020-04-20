@@ -42,6 +42,7 @@ These are the available command arguments:
 
 - **[-h | --help]**
 - **[-v | --version]**
+- **[-u | --update]**
 - **[-d | --dumplog]**
 - **[-c | --clearlog]**
 - **[-p | --product]**
@@ -74,6 +75,12 @@ These are the available command arguments:
      - **cc.xlsx** is automatically created to provide updated cut chart data. Once the "Success" response is returned, look for this file in the same location as your XML file.
 
      Name the XML file and the outfile whatever you want.
+
+- Automatically check for an update to the latest version
+
+     The CLI can check for new updates and automatically apply them.
+
+      cc-cli --update
 
 - Interact with the Log file
 
