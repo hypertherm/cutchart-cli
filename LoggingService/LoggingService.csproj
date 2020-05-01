@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netcoreapp2.1</TargetFramework>
+    <RootNamespace>Hypertherm.LoggingService</RootNamespace>
+    <TargetName>LoggingService</TargetName>
+    <AssemblyName>LoggingService</AssemblyName>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <PackageId>LoggingService</PackageId>
+    <Version>1.0.0</Version>
+    <Company>Hypertherm</Company>
+    <Authors>Hypertherm</Authors>
+    <PackageDescription>This package contains LoggingService!</PackageDescription>
+  </PropertyGroup>
+</Project>

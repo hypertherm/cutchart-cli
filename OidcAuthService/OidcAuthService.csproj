@@ -1,0 +1,27 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netcoreapp2.1</TargetFramework>
+    <RootNamespace>Hypertherm.OidcAuth</RootNamespace>
+    <TargetName>OidcAuthService</TargetName>
+    <AssemblyName>OidcAuthService</AssemblyName>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <PackageId>OidcAuthService</PackageId>
+    <Version>1.0.0</Version>
+    <Company>Hypertherm</Company>
+    <Authors>Hypertherm</Authors>
+    <PackageDescription>This package contains OidcService!</PackageDescription>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="IdentityModel.OidcClient" Version="3.1.2" />
+    <PackageReference Include="LocalStorage" Version="2.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore" Version="2.2.0" />
+    <PackageReference Include="Microsoft.AspNetCore.WebUtilities" Version="2.2.0" />
+    <PackageReference Include="Microsoft.Identity.Client" Version="4.8.2" />
+    <PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" Version="4.5.1-preview" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="6.5.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\AnalyticsService\AnalyticsService.csproj" />
+    <ProjectReference Include="..\LoggingService\LoggingService.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,8 @@
+{
+    "Authority": "https://auth0.hypertherm.com",
+    "Audience": "https://api.hypertherm.com/cutchart",
+
+    "### AUTH SECRETS ###": "### DO NOT COMMIT REAL VALUES BELOW THIS LINE ###",
+    
+    "ClientID": ""
+}
