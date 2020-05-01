@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netcoreapp2.1</TargetFramework>
+    <RootNamespace>Hypertherm.CcCli.Tests</RootNamespace>
+    <AssemblyName>cc-cli.tests</AssemblyName>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <IsPackable>false</IsPackable>
+    <Authors>Hypertherm</Authors>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="FakeItEasy" Version="6.0.0" />
+    <PackageReference Include="FluentAssertions" Version="5.10.2" />
+    <PackageReference Include="nunit" Version="3.12.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="3.15.1" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.2.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\AnalyticsService\AnalyticsService.csproj" />
+    <ProjectReference Include="..\cc-cli\cc-cli.csproj" />
+    <ProjectReference Include="..\LoggingService\LoggingService.csproj" />
+    <ProjectReference Include="..\OidcAuthService\OidcAuthService.csproj" />
+  </ItemGroup>
+</Project>

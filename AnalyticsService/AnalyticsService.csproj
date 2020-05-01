@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netcoreapp2.1</TargetFramework>
+    <RootNamespace>Hypertherm.Analytics</RootNamespace>
+    <TargetName>ApplicationInsightsAnalytics</TargetName>
+    <AssemblyName>ApplicationInsightsAnalytics</AssemblyName>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <PackageId>ApplicationInsightsAnalytics</PackageId>
+    <Version>1.0.0</Version>
+    <Company>Hypertherm</Company>
+    <Authors>Hypertherm</Authors>
+    <PackageDescription>This package contains ApplicationInsightsAnalytics!</PackageDescription>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.ApplicationInsights" Version="2.13.1" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="3.1.2" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.FileExtensions" Version="3.1.2" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="3.1.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\LoggingService\LoggingService.csproj" />
+  </ItemGroup>
+</Project>

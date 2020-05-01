@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netcoreapp2.1</TargetFramework>
+    <RootNamespace>Hypertherm.CcCli</RootNamespace>
+    <OutputType>Exe</OutputType>
+    <TargetName>cc-cli</TargetName>
+    <AssemblyName>cc-cli</AssemblyName>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <ApplicationIcon />
+    <StartupObject />
+    <Authors>Hypertherm</Authors>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Update="appsettings.json" CopyToOutputDirectory="Always" />
+    <None Update="authconfig.json" CopyToOutputDirectory="Always" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\AnalyticsService\AnalyticsService.csproj" />
+    <ProjectReference Include="..\LoggingService\LoggingService.csproj" />
+    <ProjectReference Include="..\OidcAuthService\OidcAuthService.csproj" />
+    <ProjectReference Include="..\UpdateService\UpdateService.csproj" />
+  </ItemGroup>
+</Project>
