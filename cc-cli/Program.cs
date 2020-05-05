@@ -10,7 +10,7 @@ using Hypertherm.Update;
 using static Hypertherm.Logging.LoggingService;
 using System.Diagnostics;
 
-[assembly:AssemblyVersion("1.2.1.0")]
+[assembly:AssemblyVersion("1.3.0.0")]
 
 namespace Hypertherm.CcCli
 {
@@ -67,43 +67,95 @@ namespace Hypertherm.CcCli
                 }
                 else if(argHandler.ArgData.Update)
                 {
+                    List<string> releases = new List<string>();
+
                     _updater = new UpdateWithGitHubAPI(_analyzer, _logger);
                     bool performUpdate = false;
                     
-                    if(_updater.IsUpdateAvailable().Result)
-                    {
-                        _logger.Log("An update is available. Continue with update? ('y/yes' or 'n/no')", MessageType.DisplayInfo);
+                    releases = _updater.ListReleases().GetAwaiter().GetResult();
 
-                        var userResponse = "";
+                    var userResponse = "";
+                    if(releases.Count > 0)
+                    {
+                        _logger.Log("Available versions:", MessageType.DisplayInfo);
+                        foreach(var release in releases)
+                        {
+                            _logger.Log($"{release}", MessageType.DisplayInfo);
+                        }
+                        _logger.Log("Specify a version or just press 'Enter' check latest.", MessageType.DisplayInfo);
 
                         if(Debugger.IsAttached)
                         {
-                            // Change this to "y" to debug the check for updates code.
-                            userResponse = "n";
+                            // Change this to a version to debug the check for specifiv updates code.
+                            userResponse = "v1.1.0";
                         }
                         else
                         {
                             userResponse = Console.ReadLine();
                         }
 
-                        while(userResponse != "y"
-                        && userResponse != "yes"
-                        && userResponse != "n"
-                        && userResponse != "no")
+                        if(userResponse == "")
                         {
-                            _logger.Log("Please provide a valid response.", MessageType.DisplayInfo);
-                            userResponse = Console.ReadLine();
+                            if(_updater.IsUpdateAvailable().Result)
+                            {
+                                _logger.Log("An update is available. Continue with update? ('y/yes' or 'n/no')", MessageType.DisplayInfo);
+
+                                if(Debugger.IsAttached)
+                                {
+                                    // Change this to "y" to debug the check for updates code.
+                                    userResponse = "n";
+                                }
+                                else
+                                {
+                                    userResponse = Console.ReadLine();
+                                }
+
+                                while(userResponse != "y"
+                                && userResponse != "yes"
+                                && userResponse != "n"
+                                && userResponse != "no")
+                                {
+                                    _logger.Log("Please provide a valid response.", MessageType.DisplayInfo);
+                                    userResponse = Console.ReadLine();
+                                }
+
+                                performUpdate = userResponse == "y" || userResponse == "yes" ? true : false;
+
+                                if(performUpdate)
+                                {
+                                    _logger.Log("Updating to latest release.", MessageType.DisplayInfo);
+                                    _updater.Update()
+                                    .GetAwaiter()
+                                    .GetResult();
+                                }
+                            }
                         }
-
-                        performUpdate = userResponse == "y" || userResponse == "yes" ? true : false;
-
-                        if(performUpdate)
+                        else
                         {
-                            _updater.Update()
-                            .GetAwaiter()
-                            .GetResult();
+                            string releaseVersion = "";
+
+                            if(releases.Contains(userResponse))
+                            {
+                                releaseVersion = userResponse;
+                            }
+                            else if(releases.Contains("v" + userResponse))
+                            {
+                                releaseVersion = "v" + userResponse;
+                            }
+
+                            if(releaseVersion != "")
+                            {
+                                _logger.Log($"Updating to release {releaseVersion}.", MessageType.DisplayInfo);
+                                _updater.Update(releaseVersion)
+                                    .GetAwaiter()
+                                    .GetResult();
+                            }
+                            else
+                            {
+
+                            }
                         }
-                    }
+                    }  
                 }
                 else if (argHandler.ArgData.DumpLog)
                 {
