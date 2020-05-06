@@ -94,7 +94,7 @@ namespace Hypertherm.CcCli
                             userResponse = Console.ReadLine();
                         }
 
-                        if(userResponse == "")
+                        if(string.IsNullOrEmpty(userResponse))
                         {
                             if(_updater.IsUpdateAvailable().Result)
                             {
@@ -152,7 +152,7 @@ namespace Hypertherm.CcCli
                             }
                             else
                             {
-
+                                _logger.Log("No release version was specified.", MessageType.DisplayInfo);
                             }
                         }
                     }  
