@@ -83,7 +83,7 @@ These are the available command arguments:
 
 - Automatically check for an update to the latest version
 
-     The Cut Chart CLI can check for new updates and automatically apply them.
+     The Cut Chart CLI may check for new updates and it will apply the latest version automatically or you may choose to select any version that is published by following the prompt. Start by, 
 
       cc-cli --update
 
