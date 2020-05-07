@@ -133,13 +133,19 @@ namespace Hypertherm.Update
 
                 using (Stream updateStream = File.Open(tmpDir + update, FileMode.Create))
                 {
+                    updateStream.Write(Encoding.ASCII.GetBytes("echo off \n"));
 
                     //Update cc-cli.exe taskkill to cc-cli, and loop until Windows completely kill the process before continue
-                    updateStream.Write(Encoding.ASCII.GetBytes("taskkill /f /im cc-cli.exe \n"));
-                    updateStream.Write(Encoding.ASCII.GetBytes("timeout /T 10 /nobreak > NUL \n")); 
-                     updateStream.Write(Encoding.ASCII.GetBytes($"xcopy /I /Q /Y \"{currentDir + ccCliFilename}\" \"{oldVersDir}\" \n"));
-                    updateStream.Write(Encoding.ASCII.GetBytes("timeout /T 10 /nobreak > NUL \n")); // Add wait or timeout
+                    updateStream.Write(Encoding.ASCII.GetBytes("taskkill /f /im cc-cli.exe >nul 2>&1 \n"));
+                    updateStream.Write(Encoding.ASCII.GetBytes(":LOOP \n"));
+                    updateStream.Write(Encoding.ASCII.GetBytes("tasklist | find /i \"cc-cli.exe\" >nul 2>&1 \n")); 
+                    updateStream.Write(Encoding.ASCII.GetBytes("IF ERRORLEVEL 1 (GOTO CONTINUE) \n")); 
+                    updateStream.Write(Encoding.ASCII.GetBytes("ELSE (Timeout /T 5 /Nobreak \n GOTO LOOP)\n :CONTINUE \n"));
+
+                    updateStream.Write(Encoding.ASCII.GetBytes($"xcopy /I /Q /Y \"{currentDir + ccCliFilename}\" \"{oldVersDir}\" \n"));
+                    updateStream.Write(Encoding.ASCII.GetBytes("timeout /T 2 /nobreak >nul 2>&1 \n")); // Add wait or timeout
                     updateStream.Write(Encoding.ASCII.GetBytes($"xcopy /I /Q /Y \"{tmpDir + ccCliFilename}\" \"{currentDir}\" \n"));
+                    updateStream.Write(Encoding.ASCII.GetBytes("timeout /T 2 /nobreak >nul 2>&1 \n")); 
                 }
                 
                 ExecuteCommand(tmpDir + update, currentDir);

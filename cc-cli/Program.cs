@@ -78,25 +78,27 @@ namespace Hypertherm.CcCli
                     if(releases.Count > 0)
                     {
                         _logger.Log("Available versions:", MessageType.DisplayInfo);
+                        _logger.Log("latest", MessageType.DisplayInfo);
                         foreach(var release in releases)
                         {
                             _logger.Log($"{release}", MessageType.DisplayInfo);
                         }
-                        _logger.Log("Specify a version or just press 'Enter' check latest.", MessageType.DisplayInfo);
+                        _logger.Log("none\n", MessageType.DisplayInfo);
+                        _logger.Log("Specify a version or just press 'Enter' to cancel.", MessageType.DisplayInfo);
 
                         if(Debugger.IsAttached)
                         {
                             // Change this to a version to debug the check for specifiv updates code.
-                            userResponse = "v1.1.0";
+                            userResponse = "none";
                         }
                         else
                         {
                             userResponse = Console.ReadLine();
                         }
 
-                        if(string.IsNullOrEmpty(userResponse))
+                        if(!string.IsNullOrEmpty(userResponse) && userResponse != "none")
                         {
-                            if(_updater.IsUpdateAvailable().Result)
+                            if(userResponse == "latest" && _updater.IsUpdateAvailable().Result)
                             {
                                 _logger.Log("An update is available. Continue with update? ('y/yes' or 'n/no')", MessageType.DisplayInfo);
 
@@ -129,31 +131,35 @@ namespace Hypertherm.CcCli
                                     .GetResult();
                                 }
                             }
+                            else
+                            {
+                                string releaseVersion = "";
+
+                                if(releases.Contains(userResponse))
+                                {
+                                    releaseVersion = userResponse;
+                                }
+                                else if(releases.Contains("v" + userResponse))
+                                {
+                                    releaseVersion = "v" + userResponse;
+                                }
+
+                                if(releaseVersion != "")
+                                {
+                                    _logger.Log($"Updating to release {releaseVersion}.", MessageType.DisplayInfo);
+                                    _updater.Update(releaseVersion)
+                                        .GetAwaiter()
+                                        .GetResult();
+                                }
+                                else
+                                {
+                                    _logger.Log("No release version was specified.", MessageType.DisplayInfo);
+                                }
+                            }
                         }
                         else
                         {
-                            string releaseVersion = "";
-
-                            if(releases.Contains(userResponse))
-                            {
-                                releaseVersion = userResponse;
-                            }
-                            else if(releases.Contains("v" + userResponse))
-                            {
-                                releaseVersion = "v" + userResponse;
-                            }
-
-                            if(releaseVersion != "")
-                            {
-                                _logger.Log($"Updating to release {releaseVersion}.", MessageType.DisplayInfo);
-                                _updater.Update(releaseVersion)
-                                    .GetAwaiter()
-                                    .GetResult();
-                            }
-                            else
-                            {
-                                _logger.Log("No release version was specified.", MessageType.DisplayInfo);
-                            }
+                            _logger.Log("Update process was cancelled.", MessageType.DisplayInfo);
                         }
                     }  
                 }
