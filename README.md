@@ -81,13 +81,13 @@ These are the available command arguments:
 
      Name the XML file and the outfile whatever you want.
 
-- Automatically check for an update to the latest version
+- Check for and apply updates
 
-     The Cut Chart CLI can check for new updates and automatically apply them.
+     Check for the latest updates or choose from all released versions. 
 
       cc-cli --update
 
-     When the Cut Chart CLI is updated, a backup of the current version is saved to "%APPDATA%\cc-cli\versions\".
+     When updating, a backup of the current version is saved to "%APPDATA%\cc-cli\versions\".
 
 - Interact with the Log file
 

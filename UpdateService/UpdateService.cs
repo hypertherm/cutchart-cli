@@ -19,6 +19,7 @@ namespace Hypertherm.Update
     {
         Task Update(string version = "latest");
         Task<bool> IsUpdateAvailable();
+        Task<List<string>> ListReleases();
     }
 
     public class UpdateWithGitHubAPI : IUpdateService
@@ -55,52 +56,99 @@ namespace Hypertherm.Update
             if (response.IsSuccessStatusCode
             && response.Content?.Headers?.ContentType?.MediaType == "application/json")
             {
-                _latestReleaseUrl = JObject.Parse(responseBody)["assets"].Values<JObject>().ToList()[0]["browser_download_url"].Value<string>();
                 latestVersion =  Version.Parse(JObject.Parse(responseBody)["tag_name"].Value<string>().Substring(1));
+                _latestReleaseUrl = JObject.Parse(responseBody)["assets"].Values<JObject>().ToList()[0]["browser_download_url"].Value<string>();
             }
 
             return latestVersion > currentVersion;
         }
 
+        public async Task<List<string>> ListReleases()
+        {
+            List<string> releases = new List<string>();
+
+            SetAcceptHeaderJsonContent();
+            SetUserAgentHeader();
+
+            var response = await _httpClient.GetAsync($"https://api.github.com/repos/hypertherm/cutchart-cli/releases");
+            string responseBody = await response.Content?.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode
+            && response.Content?.Headers?.ContentType?.MediaType == "application/json")
+            {
+                var releaseArray = JArray.Parse(responseBody);
+
+                foreach(var release in releaseArray)
+                {
+                    releases.Add(release["tag_name"].Value<string>());
+                }
+            }
+
+            return releases;
+        }
+
         public async Task Update(string version = "latest")
         {
             _analyticsService.GenericTrace($"Performing an update to latest.");
+            string downloadUrl = "";
+
             if(version == "latest")
             {
-                var currentDir = Directory.GetCurrentDirectory() + "\\";
-                var tmpDir = $"{Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData).ToString()}\\cc-cli\\tmp\\";
-                Directory.CreateDirectory(tmpDir);
-                var ccCliFilename = "cc-cli.exe";
-                var update = "update.bat";
-                
-                var request = new HttpRequestMessage(HttpMethod.Get, _latestReleaseUrl);
-
-                using (Stream contentStream = await (await _httpClient.SendAsync(request)).Content.ReadAsStreamAsync(),
-                stream = new FileStream(tmpDir + ccCliFilename, FileMode.Create, FileAccess.Write, FileShare.None))
-                {
-                    await contentStream.CopyToAsync(stream);
-                }
-                
-                if(File.Exists(tmpDir + ccCliFilename))
-                {
-                    var currentVersion = Version.Parse(Assembly.GetEntryAssembly().GetName().Version.ToString());
-                    var oldVersDir = $"{Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData).ToString()}\\cc-cli\\versions\\{currentVersion}\\";
-                    Directory.CreateDirectory(oldVersDir);
-                    var oldVersFilename = ccCliFilename + "_" + DateTime.Now.ToString();
-
-                    using (Stream updateStream = File.Open(tmpDir + update, FileMode.Create))
-                    {
-                        updateStream.Write(Encoding.ASCII.GetBytes("taskkill /f /im cc-cli.exe\n"));
-                        updateStream.Write(Encoding.ASCII.GetBytes($"xcopy /S /I /Q /Y /F \"{currentDir + ccCliFilename}\" \"{oldVersDir + oldVersFilename}\""));
-                        updateStream.Write(Encoding.ASCII.GetBytes($"xcopy /S /I /Q /Y /F \"{tmpDir + ccCliFilename}\" \"{currentDir}\""));
-                    }
-                    
-                    ExecuteCommand(tmpDir + update, currentDir);
-                }
+                downloadUrl = _latestReleaseUrl;
             }
             else
             {
-                _logger.Log("Version selection is not supported yet.", MessageType.Warning);
+                SetAcceptHeaderJsonContent();
+                SetUserAgentHeader();
+
+                var response = await _httpClient.GetAsync($"https://api.github.com/repos/hypertherm/cutchart-cli/releases/tags/{version}");
+                string responseBody = await response.Content?.ReadAsStringAsync();
+
+                if (response.IsSuccessStatusCode
+                && response.Content?.Headers?.ContentType?.MediaType == "application/json")
+                {
+                    downloadUrl = JObject.Parse(responseBody)["assets"].Values<JObject>().ToList()[0]["browser_download_url"].Value<string>();
+                }
+            }
+
+            var currentDir = Directory.GetCurrentDirectory() + "\\";
+            var tmpDir = $"{Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData).ToString()}\\cc-cli\\tmp\\";
+            Directory.CreateDirectory(tmpDir);
+            var ccCliFilename = "cc-cli.exe";
+            
+            var request = new HttpRequestMessage(HttpMethod.Get, downloadUrl);
+
+            using (Stream contentStream = await (await _httpClient.SendAsync(request)).Content.ReadAsStreamAsync(),
+            stream = new FileStream(tmpDir + ccCliFilename, FileMode.Create, FileAccess.Write, FileShare.None))
+            {
+                await contentStream.CopyToAsync(stream);
+            }
+            
+            if(File.Exists(tmpDir + ccCliFilename))
+            {
+                var update = "update.bat";
+                var currentVersion = Version.Parse(Assembly.GetEntryAssembly().GetName().Version.ToString());
+                var oldVersDir = $"{Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData).ToString()}\\cc-cli\\versions\\{currentVersion}\\";
+                Directory.CreateDirectory(oldVersDir);
+
+                using (Stream updateStream = File.Open(tmpDir + update, FileMode.Create))
+                {
+                    updateStream.Write(Encoding.ASCII.GetBytes("echo off \n"));
+
+                    //Update cc-cli.exe taskkill to cc-cli, and loop until Windows completely kill the process before continue
+                    updateStream.Write(Encoding.ASCII.GetBytes("taskkill /f /im cc-cli.exe >nul 2>&1 \n"));
+                    updateStream.Write(Encoding.ASCII.GetBytes(":LOOP \n"));
+                    updateStream.Write(Encoding.ASCII.GetBytes("tasklist | find /i \"cc-cli.exe\" >nul 2>&1 \n")); 
+                    updateStream.Write(Encoding.ASCII.GetBytes("IF ERRORLEVEL 1 (GOTO CONTINUE) \n")); 
+                    updateStream.Write(Encoding.ASCII.GetBytes("ELSE (Timeout /T 5 /Nobreak \n GOTO LOOP)\n :CONTINUE \n"));
+
+                    updateStream.Write(Encoding.ASCII.GetBytes($"xcopy /I /Q /Y \"{currentDir + ccCliFilename}\" \"{oldVersDir}\" \n"));
+                    updateStream.Write(Encoding.ASCII.GetBytes("timeout /T 2 /nobreak >nul 2>&1 \n")); // Add wait or timeout
+                    updateStream.Write(Encoding.ASCII.GetBytes($"xcopy /I /Q /Y \"{tmpDir + ccCliFilename}\" \"{currentDir}\" \n"));
+                    updateStream.Write(Encoding.ASCII.GetBytes("timeout /T 2 /nobreak >nul 2>&1 \n")); 
+                }
+                
+                ExecuteCommand(tmpDir + update, currentDir);
             }
         }
 
