@@ -44,7 +44,7 @@ jobs:
     - name: Test - xUnit
       run: dotnet test
 
-    - uses: dlemstra/code-sign-action@v1
+    - uses: csannhyp/code-sign-action@master
       with:
         certificate: '${{ secrets.CERTIFICATE }}'
         folder: ./
