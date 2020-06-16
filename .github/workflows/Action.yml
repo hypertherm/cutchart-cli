@@ -43,3 +43,9 @@ jobs:
       run: dotnet build --configuration release -p:Version="${{ steps.gitversion.outputs.assemblySemVer }}"
     - name: Test - xUnit
       run: dotnet test
+
+    - uses: dlemstra/code-sign-action@v1
+      with:
+        certificate: '${{ secrets.CERTIFICATE }}'
+        folder: ./
+        recursive: true
