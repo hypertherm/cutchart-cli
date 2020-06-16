@@ -47,5 +47,6 @@ jobs:
     - uses: csannhyp/code-sign-action@master
       with:
         certificate: '${{ secrets.CERTIFICATE }}'
+        certificatePassword: '${{ secrets.CERTIFICATE_PASSWORD}}'
         folder: ./
         recursive: true
