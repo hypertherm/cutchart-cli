@@ -49,4 +49,10 @@ jobs:
       with:
         certificate: '${{ secrets.CERTIFICATE }}'
         folder: ./
+    
+    - name: Latest tag
+      uses: EndBug/latest-tag@v1.3.1
+      with:
+        tag-name: ${{ steps.gitversion.outputs.assemblySemVer }}
+     
    
