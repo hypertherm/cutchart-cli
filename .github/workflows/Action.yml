@@ -4,7 +4,7 @@ on:
   push:
     branches: [ master ]
   pull_request:
-    branches: [ master ]
+    branches: [ master ]      
 
 jobs:
   build:
@@ -49,15 +49,14 @@ jobs:
       with:
         certificate: '${{ secrets.CERTIFICATE }}'
         folder: ./
-    
+
     - name: Create a Release
+      if: ${{ github.event.action == 'merged' }}
       uses: actions/create-release@v1.1.1
       env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-    # The name of the tag. This should come from the webhook payload, `github.GITHUB_REF` when a user pushes a new tag
         tag_name: ${{ steps.gitversion.outputs.assemblySemVer }}
-    # The name of the release. For example, `Release v1.0.1`
         release_name: Version ${{ steps.gitversion.outputs.assemblySemVer }}
     
   
