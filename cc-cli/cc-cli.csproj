@@ -5,6 +5,7 @@
     <OutputType>Exe</OutputType>
     <TargetName>cc-cli</TargetName>
     <AssemblyName>cc-cli</AssemblyName>
+    <Version>0.0.0.0</Version>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <ApplicationIcon />
     <StartupObject />
