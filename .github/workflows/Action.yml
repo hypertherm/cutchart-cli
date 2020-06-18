@@ -32,6 +32,29 @@ jobs:
       uses: actions/setup-dotnet@v1.5.0
       with:
         dotnet-version: 2.1
+    
+    - name: Define Authentication
+      shell: bash
+      env:
+        CLIENT_ID: ${{ secrets.ClientID }}
+        
+      run: |
+        cat <<EOF > ./cc-cli/authconfig.json
+        { "ClientID": "$CLIENT_ID" }
+        EOF
+      
+    - name: Define Analytics
+      shell: bash
+      env:
+        StorageSaltString: ${{ secrets.STORAGESALTSTRING }}
+        StoragePassword: ${{ secrets.STORAGEPASSWORD }}
+        InstrumentationKey: ${{ secrets.INSTRUMENTATIONKEY }}        
+      run: |
+        cat <<EOF > ./cc-cli/appsettings.json
+        { "StorageSaltString": "$StorageSaltString",
+        "StoragePassword": "$StoragePassword",
+        "InstrumentationKey": "$InstrumentationKey"}
+        EOF
 
     - name: Build
       run: dotnet build --configuration release -p:Version="${{ steps.gitversion.outputs.assemblySemVer }}"
