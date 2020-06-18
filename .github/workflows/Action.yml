@@ -4,7 +4,7 @@ on:
   push:
     branches: [ master ]
   pull_request:
-    branches: [ master ]
+    branches: [ master ]      
 
 jobs:
   build:
@@ -32,6 +32,29 @@ jobs:
       uses: actions/setup-dotnet@v1.5.0
       with:
         dotnet-version: 2.1
+    
+    - name: Define Authentication
+      shell: bash
+      env:
+        CLIENT_ID: ${{ secrets.ClientID }}
+        
+      run: |
+        cat <<EOF > ./cc-cli/authconfig.json
+        { "ClientID": "$CLIENT_ID" }
+        EOF
+      
+    - name: Define Analytics
+      shell: bash
+      env:
+        StorageSaltString: ${{ secrets.STORAGESALTSTRING }}
+        StoragePassword: ${{ secrets.STORAGEPASSWORD }}
+        InstrumentationKey: ${{ secrets.INSTRUMENTATIONKEY }}        
+      run: |
+        cat <<EOF > ./cc-cli/appsettings.json
+        { "StorageSaltString": "$StorageSaltString",
+        "StoragePassword": "$StoragePassword",
+        "InstrumentationKey": "$InstrumentationKey"}
+        EOF
 
     - name: Build
       run: dotnet build --configuration release -p:Version="${{ steps.gitversion.outputs.assemblySemVer }}"
@@ -49,15 +72,15 @@ jobs:
       with:
         certificate: '${{ secrets.CERTIFICATE }}'
         folder: ./
-    
+
     - name: Create a Release
+      #if: ${{ github.event.action == 'merged' }}
       uses: actions/create-release@v1.1.1
       env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-    # The name of the tag. This should come from the webhook payload, `github.GITHUB_REF` when a user pushes a new tag
         tag_name: ${{ steps.gitversion.outputs.assemblySemVer }}
-    # The name of the release. For example, `Release v1.0.1`
         release_name: Version ${{ steps.gitversion.outputs.assemblySemVer }}
+        prerelease: true
     
   
