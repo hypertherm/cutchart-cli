@@ -40,7 +40,14 @@ jobs:
         
       run: |
         cat <<EOF > ./cc-cli/authconfig.json
-        { "ClientID": "$CLIENT_ID" }
+        {
+          "Authority": "https://auth0.hypertherm.com",
+          "Audience": "https://api.hypertherm.com/cutchart",
+
+          "### AUTH SECRETS ###": "### DO NOT COMMIT REAL VALUES BELOW THIS LINE ###",
+    
+          "ClientID": "$CLIENT_ID"
+        }
         EOF
       
     - name: Define Analytics
@@ -51,9 +58,16 @@ jobs:
         InstrumentationKey: ${{ secrets.INSTRUMENTATIONKEY }}        
       run: |
         cat <<EOF > ./cc-cli/appsettings.json
-        { "StorageSaltString": "$StorageSaltString",
-        "StoragePassword": "$StoragePassword",
-        "InstrumentationKey": "$InstrumentationKey"}
+        {
+            "RedirectUriPort": "57713",
+
+            "### GENERAL SECRETS ###": "### DO NOT COMMIT REAL VALUES BELOW THIS LINE ###",
+
+            "StorageSaltString": "$StorageSaltString",
+            "StoragePassword": "$StoragePassword",
+
+            "InstrumentationKey": "$InstrumentationKey"
+        }
         EOF
 
     - name: Build
