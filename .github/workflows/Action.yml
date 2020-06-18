@@ -95,7 +95,6 @@ jobs:
       with:
         tag_name: ${{ steps.gitversion.outputs.assemblySemVer }}
         release_name: Version ${{ steps.gitversion.outputs.assemblySemVer }}
-        prerelease: true
     
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v2
@@ -104,4 +103,8 @@ jobs:
         name: cli-cc.exe
          # A file, directory or wildcard pattern that describes what to upload
         path: ./cc-cli.exe
-  
+               
+    - name: GitHub Upload Release Artifacts
+      #if: ${{ github.event.action == 'merged' }}
+      uses: Roang-zero1/github-upload-release-artifacts-action@v2.1.0
+        
