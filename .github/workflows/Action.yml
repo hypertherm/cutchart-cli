@@ -64,7 +64,6 @@ jobs:
         {
             "RedirectUriPort": "57713",
 
-            "### GENERAL SECRETS ###": "### DO NOT COMMIT REAL VALUES BELOW THIS LINE ###",
 
             "StorageSaltString": "$StorageSaltString",
             "StoragePassword": "$StoragePassword",
