@@ -23,8 +23,6 @@ jobs:
     - name: Use GitVersion
       id: gitversion # step id used as reference for output values
       uses: gittools/actions/gitversion/execute@v0.9.3
-      with:
-        updateAssemblyInfo: true
     - name: Print GitVersion computed
       run: |
         echo "LegacySemVer: ${{ steps.gitversion.outputs.legacySemVer }}"
