@@ -12,19 +12,17 @@ jobs:
     runs-on: windows-latest
 
     steps: 
-    - uses: actions/checkout@v2.2.0
+    - uses: actions/checkout@v2.x
     
     - name: Fetch all history for all tags and branches
       run: git fetch --prune --unshallow
     - name: Install GitVersion
       uses: gittools/actions/gitversion/setup@v0.9.3
       with:
-          versionSpec: '5.2.x'
+          versionSpec: '5.x'
     - name: Use GitVersion
       id: gitversion # step id used as reference for output values
       uses: gittools/actions/gitversion/execute@v0.9.3
-      with:
-        updateAssemblyInfo: true
     - name: Print GitVersion computed
       run: |
         echo "LegacySemVer: ${{ steps.gitversion.outputs.legacySemVer }}"
@@ -32,9 +30,9 @@ jobs:
     
     
     - name: Setup .NET Core SDK
-      uses: actions/setup-dotnet@v1.5.0
+      uses: actions/setup-dotnet@v1.x
       with:
-        dotnet-version: 2.1
+        dotnet-version: 2.x
     
     - name: Define Authentication
       shell: bash
@@ -92,7 +90,7 @@ jobs:
 
     - name: Create a Release
       #if: ${{ github.event.action == 'merged' }}
-      uses: actions/create-release@v1.1.1
+      uses: actions/create-release@v1.x
       env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
