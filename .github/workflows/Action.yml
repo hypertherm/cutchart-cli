@@ -12,14 +12,14 @@ jobs:
     runs-on: windows-latest
 
     steps: 
-    - uses: actions/checkout@v2.x
+    - uses: actions/checkout@v2.3.1
     
     - name: Fetch all history for all tags and branches
       run: git fetch --prune --unshallow
     - name: Install GitVersion
       uses: gittools/actions/gitversion/setup@v0.9.3
       with:
-          versionSpec: '5.x'
+          versionSpec: '5.3.x'
     - name: Use GitVersion
       id: gitversion # step id used as reference for output values
       uses: gittools/actions/gitversion/execute@v0.9.3
@@ -30,9 +30,9 @@ jobs:
     
     
     - name: Setup .NET Core SDK
-      uses: actions/setup-dotnet@v1.x
+      uses: actions/setup-dotnet@v1.5
       with:
-        dotnet-version: 2.x
+        dotnet-version: 2.1
     
     - name: Define Authentication
       shell: bash
