@@ -82,7 +82,7 @@ jobs:
       run: dotnet tool install -g dotnet-warp 
     
     - name: Warp Project
-      run: dotnet warp .\cc-cli\cc-cli.csproj
+      run: dotnet warp .\cc-cli\cc-cli.csproj -p:Version=${{ steps.gitversion.outputs.assemblySemVer }}
 
     - name: Code sign a file
       uses: dlemstra/code-sign-action@v1
