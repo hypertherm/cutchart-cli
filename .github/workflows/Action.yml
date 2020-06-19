@@ -1,0 +1,122 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]      
+
+jobs:
+  build:
+    
+    runs-on: windows-latest
+
+    steps: 
+    - uses: actions/checkout@v2.3.1
+    
+    - name: Fetch all history for all tags and branches
+      run: git fetch --prune --unshallow
+    - name: Install GitVersion
+      uses: gittools/actions/gitversion/setup@v0.9.3
+      with:
+          versionSpec: '5.3.x'
+    - name: Use GitVersion
+      id: gitversion # step id used as reference for output values
+      uses: gittools/actions/gitversion/execute@v0.9.3
+      with:
+        updateAssemblyInfo: true
+        updateAssemblyInfoFilename: ./cc-cli/AssemblyInfo.cs
+    - name: Print GitVersion computed
+      run: |
+        echo "LegacySemVer: ${{ steps.gitversion.outputs.legacySemVer }}"
+        echo "AssemblySemVer: ${{ steps.gitversion.outputs.assemblySemVer }}"
+    
+    
+    - name: Setup .NET Core SDK
+      uses: actions/setup-dotnet@v1.5.0
+      with:
+        dotnet-version: 2.1
+    
+    - name: Define Authentication
+      shell: bash
+      env:
+        CLIENT_ID: ${{ secrets.ClientID }}
+        
+      run: |
+        cat <<EOF > ./cc-cli/authconfig.json
+        {
+          "Authority": "https://auth0.hypertherm.com",
+          "Audience": "https://api.hypertherm.com/cutchart",
+
+    
+          "ClientID": "$CLIENT_ID"
+        }
+        EOF
+      
+    - name: Define Analytics
+      shell: bash
+      env:
+        StorageSaltString: ${{ secrets.STORAGESALTSTRING }}
+        StoragePassword: ${{ secrets.STORAGEPASSWORD }}
+        InstrumentationKey: ${{ secrets.INSTRUMENTATIONKEY }}        
+      run: |
+        cat <<EOF > ./cc-cli/appsettings.json
+        {
+            "RedirectUriPort": "57713",
+
+
+            "StorageSaltString": "$StorageSaltString",
+            "StoragePassword": "$StoragePassword",
+
+            "InstrumentationKey": "$InstrumentationKey"
+        }
+        EOF
+
+    - name: Build
+      run: dotnet build --configuration release -p:Version="${{ steps.gitversion.outputs.legacySemVer }}"
+    - name: Test - xUnit
+      run: dotnet test
+    
+    - name: Install Dotnet -Warp
+      run: dotnet tool install -g dotnet-warp 
+    
+    - name: Warp Project
+      run: dotnet warp .\cc-cli\cc-cli.csproj -p:Version=${{ steps.gitversion.outputs.legacySemVer }}
+
+    - name: Code sign a file
+      uses: dlemstra/code-sign-action@v1
+      with:
+        certificate: '${{ secrets.CERTIFICATE }}'
+        folder: ./
+
+    - name: Create a Release
+      if: ${{ github.event.action == 'merged' }}
+      id: create_release
+      uses: actions/create-release@v1.1.1
+      env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.gitversion.outputs.legacySemVer }}
+        release_name: Version ${{ steps.gitversion.outputs.legacySemVer }}
+    
+    - name: Upload a Build Artifact
+      uses: actions/upload-artifact@v2
+      with:
+        # Artifact name
+        name: cli-cc.exe
+         # A file, directory or wildcard pattern that describes what to upload
+        path: ./cc-cli.exe
+     
+    - name: Upload Release Asset
+      if: ${{ github.event.action == 'merged' }}
+      id: upload-release-asset 
+      uses: actions/upload-release-asset@v1
+      env:
+         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+         upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+         asset_path: ./cc-cli.exe
+         asset_name: cc-cli.exe
+         asset_content_type: application/zip
+              
+       
