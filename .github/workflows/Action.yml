@@ -75,7 +75,7 @@ jobs:
         EOF
 
     - name: Build
-      run: dotnet build --configuration release -p:Version="${{ steps.gitversion.outputs.assemblySemVer }}"
+      run: dotnet build --configuration release -p:Version="${{ steps.gitversion.outputs.legacySemVer }}"
     - name: Test - xUnit
       run: dotnet test
     
@@ -83,7 +83,7 @@ jobs:
       run: dotnet tool install -g dotnet-warp 
     
     - name: Warp Project
-      run: dotnet warp .\cc-cli\cc-cli.csproj -p:Version=${{ steps.gitversion.outputs.assemblySemVer }}
+      run: dotnet warp .\cc-cli\cc-cli.csproj -p:Version=${{ steps.gitversion.outputs.legacySemVer }}
 
     - name: Code sign a file
       uses: dlemstra/code-sign-action@v1
@@ -98,8 +98,8 @@ jobs:
       env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: ${{ steps.gitversion.outputs.assemblySemVer }}
-        release_name: Version ${{ steps.gitversion.outputs.assemblySemVer }}
+        tag_name: ${{ steps.gitversion.outputs.legacySemVer }}
+        release_name: Version ${{ steps.gitversion.outputs.legacySemVer }}
     
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v2
