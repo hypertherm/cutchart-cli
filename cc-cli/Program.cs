@@ -18,6 +18,7 @@ namespace Hypertherm.CcCli
         private static ILoggingService _logger;
         private static IAnalyticsService _analyzer;
 
+        private static bool _checkForUpdates = true;
         static void Main(string[] args)
         {
             ArgumentHandler argHandler = new ArgumentHandler(args);
@@ -98,36 +99,7 @@ namespace Hypertherm.CcCli
                         {
                             if(userResponse == "latest" && _updater.IsUpdateAvailable().Result)
                             {
-                                _logger.Log("An update is available. Continue with update? ('y/yes' or 'n/no')", MessageType.DisplayInfo);
-
-                                if(Debugger.IsAttached)
-                                {
-                                    // Change this to "y" to debug the check for updates code.
-                                    userResponse = "n";
-                                }
-                                else
-                                {
-                                    userResponse = Console.ReadLine();
-                                }
-
-                                while(userResponse != "y"
-                                && userResponse != "yes"
-                                && userResponse != "n"
-                                && userResponse != "no")
-                                {
-                                    _logger.Log("Please provide a valid response.", MessageType.DisplayInfo);
-                                    userResponse = Console.ReadLine();
-                                }
-
-                                performUpdate = userResponse == "y" || userResponse == "yes" ? true : false;
-
-                                if(performUpdate)
-                                {
-                                    _logger.Log("Updating to latest release.", MessageType.DisplayInfo);
-                                    _updater.Update()
-                                    .GetAwaiter()
-                                    .GetResult();
-                                }
+                                UpdateIsAvailableConversation();
                             }
                             else
                             {
@@ -172,6 +144,21 @@ namespace Hypertherm.CcCli
             }
             else
             {
+                // Check for updates if enabled
+                _updater = new UpdateWithGitHubAPI(_analyzer, _logger);
+                if(_checkForUpdates)
+                {
+                    if(_updater.IsUpdateAvailable().Result)
+                    {
+                        if(UpdateIsAvailableConversation())
+                        {
+                            Thread.Sleep(5000);
+
+                            return;
+                        }
+                    }
+                }
+
                 var _authenticator = new OidcAuthService(config, _analyzer, _logger);
 
                 if (argHandler.ArgData.Logout)
@@ -281,6 +268,51 @@ namespace Hypertherm.CcCli
                     }
                 }
             }
+        }
+
+        private static bool UpdateIsAvailableConversation(string testResponse = "n")
+        {
+            var updated = false;
+
+            _logger.Log("An update is available. Continue with update? ('y/yes' or 'n/no')", MessageType.DisplayInfo);
+
+            if(UserYesNoRespose(testResponse))
+            {
+                _logger.Log("Updating to latest release.", MessageType.DisplayInfo);
+                _updater.Update()
+                .GetAwaiter()
+                .GetResult();
+
+                updated = true;
+            }
+
+            return updated;
+        }
+
+        // Pass in a value to debug specific user responses.
+        private static bool UserYesNoRespose(string testResponse = "n")
+        {
+            var userResponse = "";
+
+            if(Debugger.IsAttached)
+            {
+                userResponse = testResponse.ToLower();
+            }
+            else
+            {
+                userResponse = Console.ReadLine().ToLower();
+            }
+
+            while(userResponse != "y"
+                && userResponse != "yes"
+                && userResponse != "n"
+                && userResponse != "no")
+            {
+                _logger.Log("Please provide a valid response.", MessageType.DisplayInfo);
+                userResponse = Console.ReadLine();
+            }
+
+            return userResponse == "y" || userResponse == "yes";
         }
 
         private static void ExitStatus(string outfile)
