@@ -24,6 +24,7 @@ namespace Hypertherm.Update
 
     public class UpdateWithGitHubAPI : IUpdateService
     {
+        private bool _updateIsAvailable = false;
         private string gitHubUrl;
         private IAnalyticsService _analyticsService;
         private ILoggingService _logger;
@@ -42,25 +43,29 @@ namespace Hypertherm.Update
 
         public async Task<bool> IsUpdateAvailable()
         {
-            _analyticsService.GenericTrace($"Checking for updates.");
-
-            var latestVersion = new Version("0.0.0.0");
-            var currentVersion = Version.Parse(Assembly.GetEntryAssembly().GetName().Version.ToString());
-
-            SetAcceptHeaderJsonContent();
-            SetUserAgentHeader();
-
-            var response = await _httpClient.GetAsync($"https://api.github.com/repos/hypertherm/cutchart-cli/releases/latest");
-            string responseBody = await response.Content?.ReadAsStringAsync();
-
-            if (response.IsSuccessStatusCode
-            && response.Content?.Headers?.ContentType?.MediaType == "application/json")
+            if(!_updateIsAvailable)
             {
-                latestVersion =  Version.Parse(JObject.Parse(responseBody)["tag_name"].Value<string>().Substring(1));
-                _latestReleaseUrl = JObject.Parse(responseBody)["assets"].Values<JObject>().ToList()[0]["browser_download_url"].Value<string>();
+                _analyticsService.GenericTrace($"Checking for updates.");
+                var latestVersion = new Version("0.0.0.0");
+                var currentVersion = Version.Parse(Assembly.GetEntryAssembly().GetName().Version.ToString());
+
+                SetAcceptHeaderJsonContent();
+                SetUserAgentHeader();
+
+                var response = await _httpClient.GetAsync($"https://api.github.com/repos/hypertherm/cutchart-cli/releases/latest");
+                string responseBody = await response.Content?.ReadAsStringAsync();
+
+                if (response.IsSuccessStatusCode
+                && response.Content?.Headers?.ContentType?.MediaType == "application/json")
+                {
+                    latestVersion =  Version.Parse(JObject.Parse(responseBody)["tag_name"].Value<string>().Substring(1));
+                    _latestReleaseUrl = JObject.Parse(responseBody)["assets"].Values<JObject>().ToList()[0]["browser_download_url"].Value<string>();
+                }
+
+                _updateIsAvailable = latestVersion > currentVersion;
             }
 
-            return latestVersion > currentVersion;
+            return _updateIsAvailable;
         }
 
         public async Task<List<string>> ListReleases()
