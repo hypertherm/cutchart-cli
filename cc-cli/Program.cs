@@ -9,6 +9,9 @@ using Hypertherm.OidcAuth;
 using Hypertherm.Update;
 using static Hypertherm.Logging.LoggingService;
 using System.Diagnostics;
+using Hanssens.Net;
+using System.Text;
+using System.Threading;
 
 namespace Hypertherm.CcCli
 {
@@ -18,7 +21,12 @@ namespace Hypertherm.CcCli
         private static ILoggingService _logger;
         private static IAnalyticsService _analyzer;
 
+        private static LocalStorage _localStorageGlobalSettings;
+
+        // Global Settings Constants
+        private const string CHECKFORUPDATES = "check-for-updates";
         private static bool _checkForUpdates = true;
+
         static void Main(string[] args)
         {
             ArgumentHandler argHandler = new ArgumentHandler(args);
@@ -48,6 +56,28 @@ namespace Hypertherm.CcCli
                     .AddJsonFile("appsettings.json", true, true)
                     .AddJsonFile("authconfig.json", true, true)
                     .Build();
+
+            // Setup Local Encrypted Storage Config
+            var localStorageConfig = new LocalStorageConfiguration()
+            {
+                AutoLoad = true,
+                AutoSave = true,
+                EnableEncryption = true,
+                EncryptionSalt = Convert.ToBase64String(Encoding.ASCII.GetBytes(config["StorageSaltString"]))
+            };
+            // Create a Local Storage object for Global persisting settings
+            _localStorageGlobalSettings = new LocalStorage(localStorageConfig, config["StoragePassword"]);
+
+            var storageKeyBase = "cc-cli:global.";
+            if (_localStorageGlobalSettings.Exists(storageKeyBase + CHECKFORUPDATES))
+            {
+                _checkForUpdates = (bool)_localStorageGlobalSettings.Get(storageKeyBase + CHECKFORUPDATES);
+            }
+            else
+            {
+                _localStorageGlobalSettings.Store(storageKeyBase + CHECKFORUPDATES, _checkForUpdates);
+                _localStorageGlobalSettings.Persist();
+            }
             
             // Set up preferred IAnalyticsService, we are using Application Insights.
             // You can build your own if you extend the IAnalyticsService interface.
@@ -64,25 +94,42 @@ namespace Hypertherm.CcCli
                 {
                     _logger.Log(Assembly.GetEntryAssembly().GetName().Version.ToString(), MessageType.DisplayInfo);
                 }
+                else if(!string.IsNullOrEmpty(argHandler.ArgData.Settings))
+                {
+                    if(argHandler.ArgData.Settings != "show")
+                    {
+                        var settingToToggle = storageKeyBase + argHandler.ArgData.Settings;
+                        if(_localStorageGlobalSettings.Exists(settingToToggle))
+                        {
+                            // TODO: add validation that the given value works with the given setting
+                            _localStorageGlobalSettings.Store(settingToToggle, !(bool)_localStorageGlobalSettings.Get(settingToToggle));
+                            _localStorageGlobalSettings.Persist();
+                        }
+                        else
+                        {
+                            _logger.Log($"\"{argHandler.ArgData.Settings}\" is not a valid setting.", MessageType.Error);
+                        }
+                    }
+
+                    // Possibly make a list of settings to iterate over or a standalone class to manage them
+                    _logger.Log($"{storageKeyBase}settings" , MessageType.DisplayInfo);
+                    _logger.Log($"{CHECKFORUPDATES}: {_localStorageGlobalSettings.Get(storageKeyBase + CHECKFORUPDATES)}", MessageType.DisplayInfo);
+                }
                 else if(argHandler.ArgData.Update)
                 {
                     List<string> releases = new List<string>();
-
-                    _updater = new UpdateWithGitHubAPI(_analyzer, _logger);
-                    bool performUpdate = false;
-                    
                     releases = _updater.ListReleases().GetAwaiter().GetResult();
 
                     var userResponse = "";
                     if(releases.Count > 0)
                     {
                         _logger.Log("Available versions:", MessageType.DisplayInfo);
-                        _logger.Log("latest", MessageType.DisplayInfo);
+                        _logger.Log(" latest", MessageType.DisplayInfo);
                         foreach(var release in releases)
                         {
-                            _logger.Log($"{release}", MessageType.DisplayInfo);
+                            _logger.Log($" {release}", MessageType.DisplayInfo);
                         }
-                        _logger.Log("none\n", MessageType.DisplayInfo);
+                        _logger.Log(" none\n", MessageType.DisplayInfo);
                         _logger.Log("Specify a version or just press 'Enter' to cancel.", MessageType.DisplayInfo);
 
                         if(Debugger.IsAttached)
@@ -156,6 +203,13 @@ namespace Hypertherm.CcCli
 
                             return;
                         }
+                        _logger.Log("Disable update notifications? ('y/yes' or 'n/no')", MessageType.DisplayInfo);
+                        
+                        // check for user response and store it in local storage for future runs
+                        var userResponse = !UserYesNoRespose();
+
+                        _localStorageGlobalSettings.Store(storageKeyBase + CHECKFORUPDATES, userResponse);
+                        _localStorageGlobalSettings.Persist();
                     }
                 }
 
