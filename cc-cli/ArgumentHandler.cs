@@ -142,12 +142,28 @@ namespace Hypertherm.CcCli
                             _argData.AddToLogString($"   Cannot execute \"{_args[i]}\".");
                         }
                     }
-                    else if (_validParamOptions.ContainsKey(_args[i])
-                        && _args.Count > i + 1)
+                    else if (_validParamOptions.ContainsKey(_args[i]))
                     {
-                        SavePropertyParam(_validParamOptions[_args[i]], _args[i + 1]);
-                        _argData.AddToLogString($"Option: \"{_args[i]}\", Value: \"{_args[i + 1]}\".");
-                        i++;
+                        if(_args[i] == "-s" || _args[i] == "--settings")
+                        {
+                            ArgData.Settings = "show";
+                            _argData.AddToLogString($"\"Settings\" requested");
+                            _argData.NoCommands = true;
+                        }
+
+                        if(_args.Count > i + 1)
+                        {
+                            SavePropertyParam(_validParamOptions[_args[i]], _args[i + 1]);
+                            _argData.AddToLogString($"Option: \"{_args[i]}\", Value: \"{_args[i + 1]}\".");
+                            i++;
+                        }
+                        else 
+                        {
+                            if(_args[i] != "-s" && _args[i] != "--settings")
+                            {
+                                _argData.AddToLogString($"\"{_args[i]}\" requires an additional argument.", true);
+                            }
+                        }
                     }
                     else
                     {
@@ -219,7 +235,9 @@ namespace Hypertherm.CcCli
             ["-u"] = "Units",
             ["--units"] = "Units",
             ["-t"] = "CcType",
-            ["--type"] = "CcType"
+            ["--type"] = "CcType",
+            ["-s"] = "Settings",
+            ["--settings"] = "Settings"
         };
         public Dictionary<string, string> ValidParamOptions => _validParamOptions;
 
@@ -232,7 +250,11 @@ namespace Hypertherm.CcCli
 
             ### When used, will not execute API commands ###
                  [-h | --help] [-v | --version] [-u | --update]
-                 [-d | --dumplog] [-c | --clearlog]
+                 [-s | --settings] [-d | --dumplog] [-c | --clearlog]
+
+                    ** Settings options **
+                         show
+                         modify <setting> <value>
 
             ### Can be used with API Commands ###
                  [-p | --product]
@@ -248,6 +270,7 @@ namespace Hypertherm.CcCli
             public string HelpString => _helpString;
             public bool Version { get; set; }
             public bool Update { get; set; }
+            public string Settings { get; set; }
             public bool DumpLog { get; set; }
             public bool ClearLog { get; set; }
             public bool Logout { get; set; }
@@ -280,6 +303,11 @@ namespace Hypertherm.CcCli
                 {
                     Debug = false,
                     Help = false,
+                    Version = false,
+                    Update = false,
+                    Settings = "",
+                    DumpLog = false,
+                    ClearLog = false,
                     Logout = false,
                     Product = "",
                     Units = "English",
