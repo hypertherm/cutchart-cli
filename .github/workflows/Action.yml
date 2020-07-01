@@ -97,7 +97,7 @@ jobs:
       env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: ${{ steps.gitversion.outputs.legacySemVer }}
+        tag_name: v${{ steps.gitversion.outputs.legacySemVer }}
         release_name: Version ${{ steps.gitversion.outputs.legacySemVer }}
     
     - name: Upload a Build Artifact
@@ -118,6 +118,6 @@ jobs:
          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
          asset_path: ./cc-cli.exe
          asset_name: cc-cli.exe
-         asset_content_type: application/zip
+         asset_content_type: application/vnd.microsoft.portable-executable
               
        

@@ -118,7 +118,10 @@ namespace Hypertherm.CcCli
                 else if(argHandler.ArgData.Update)
                 {
                     List<string> releases = new List<string>();
-                    releases = _updater.ListReleases().GetAwaiter().GetResult();
+                    _updater = new UpdateWithGitHubAPI(_analyzer, _logger);
+                    releases = _updater.ListReleases()
+                                       .GetAwaiter()
+                                       .GetResult();
 
                     var userResponse = "";
                     if(releases.Count > 0)
