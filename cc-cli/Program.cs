@@ -83,6 +83,8 @@ namespace Hypertherm.CcCli
             // You can build your own if you extend the IAnalyticsService interface.
             _analyzer = new ApplicationInsightsAnalytics(config, _logger);
             _analyzer.GenericTrace("Analytics Initialized.");
+            
+            _updater = new UpdateWithGitHubAPI(_analyzer, _logger);
 
             if(argHandler.ArgData.NoCommands)
             {
@@ -118,7 +120,6 @@ namespace Hypertherm.CcCli
                 else if(argHandler.ArgData.Update)
                 {
                     List<string> releases = new List<string>();
-                    _updater = new UpdateWithGitHubAPI(_analyzer, _logger);
                     releases = _updater.ListReleases()
                                        .GetAwaiter()
                                        .GetResult();
@@ -147,7 +148,7 @@ namespace Hypertherm.CcCli
 
                         if(!string.IsNullOrEmpty(userResponse) && userResponse != "none")
                         {
-                            if(userResponse == "latest" && _updater.IsUpdateAvailable().Result)
+                            if(userResponse == "latest" && _updater.IsUpdateAvailable())
                             {
                                 UpdateIsAvailableConversation();
                             }
@@ -195,10 +196,9 @@ namespace Hypertherm.CcCli
             else
             {
                 // Check for updates if enabled
-                _updater = new UpdateWithGitHubAPI(_analyzer, _logger);
                 if(_checkForUpdates)
                 {
-                    if(_updater.IsUpdateAvailable().Result)
+                    if(_updater.IsUpdateAvailable())
                     {
                         if(UpdateIsAvailableConversation())
                         {
@@ -331,7 +331,7 @@ namespace Hypertherm.CcCli
         {
             var updated = false;
 
-            _logger.Log("An update is available. Continue with update? ('y/yes' or 'n/no')", MessageType.DisplayInfo);
+            _logger.Log($"An update to cc-cli v{_updater.LatestReleasedVersion().ToString()} is available. Continue with update? ('y/yes' or 'n/no')", MessageType.DisplayInfo);
 
             if(UserYesNoRespose(testResponse))
             {
