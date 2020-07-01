@@ -169,7 +169,7 @@ namespace Hypertherm.CcCli
                     {
                         if (!_argData.IsError)
                         {
-                            _argData.AddToLogString($"\"{_args[i]}\" is and unknown command/option(s)", true);
+                            _argData.AddToLogString($"\"{_args[i]}\" is an unknown command/option(s)", true);
                         }
                     }
                 }

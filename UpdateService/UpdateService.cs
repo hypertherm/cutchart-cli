@@ -1,7 +1,6 @@
 
 using Hypertherm.Logging;
 using Hypertherm.Analytics;
-using static Hypertherm.Logging.LoggingService;
 using Newtonsoft.Json.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -18,7 +17,8 @@ namespace Hypertherm.Update
     public interface IUpdateService
     {
         Task Update(string version = "latest");
-        Task<bool> IsUpdateAvailable();
+        Version LatestReleasedVersion();
+        bool IsUpdateAvailable();
         Task<List<string>> ListReleases();
     }
 
@@ -31,7 +31,10 @@ namespace Hypertherm.Update
         private static HttpClient _httpClient;
 
         private List<JObject> _releases = new List<JObject>();
-        private string _latestReleaseUrl;
+
+        private Version _latestReleasedVersion = new Version("0.0.0.0");
+        public Version LatestReleasedVersion(){ return _latestReleasedVersion; }
+        private string _latestReleaseUrl = "";
 
         public UpdateWithGitHubAPI(IAnalyticsService analyticsService, ILoggingService logger, string url = "")
         {
@@ -39,31 +42,16 @@ namespace Hypertherm.Update
             _logger = logger;
             gitHubUrl = url;
             _httpClient = new HttpClient();
+
+            GetLatestReleasedVersionInfo().GetAwaiter().GetResult();
         }
 
-        public async Task<bool> IsUpdateAvailable()
+        public bool IsUpdateAvailable()
         {
-            if(!_updateIsAvailable)
-            {
-                _analyticsService.GenericTrace($"Checking for updates.");
-                var latestVersion = new Version("0.0.0.0");
-                var currentVersion = Version.Parse(Assembly.GetEntryAssembly().GetName().Version.ToString());
+            _analyticsService.GenericTrace($"Checking for available updates.");
+            var currentVersion = Version.Parse(Assembly.GetEntryAssembly().GetName().Version.ToString());
 
-                SetAcceptHeaderJsonContent();
-                SetUserAgentHeader();
-
-                var response = await _httpClient.GetAsync($"https://api.github.com/repos/hypertherm/cutchart-cli/releases/latest");
-                string responseBody = await response.Content?.ReadAsStringAsync();
-
-                if (response.IsSuccessStatusCode
-                && response.Content?.Headers?.ContentType?.MediaType == "application/json")
-                {
-                    latestVersion =  Version.Parse(JObject.Parse(responseBody)["tag_name"].Value<string>().Substring(1));
-                    _latestReleaseUrl = JObject.Parse(responseBody)["assets"].Values<JObject>().ToList()[0]["browser_download_url"].Value<string>();
-                }
-
-                _updateIsAvailable = latestVersion > currentVersion;
-            }
+            _updateIsAvailable = _latestReleasedVersion > currentVersion;
 
             return _updateIsAvailable;
         }
@@ -120,7 +108,7 @@ namespace Hypertherm.Update
             var tmpDir = $"{Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData).ToString()}\\cc-cli\\tmp\\";
             Directory.CreateDirectory(tmpDir);
             var ccCliFilename = "cc-cli.exe";
-            
+
             var request = new HttpRequestMessage(HttpMethod.Get, downloadUrl);
 
             using (Stream contentStream = await (await _httpClient.SendAsync(request)).Content.ReadAsStreamAsync(),
@@ -128,7 +116,7 @@ namespace Hypertherm.Update
             {
                 await contentStream.CopyToAsync(stream);
             }
-            
+
             if(File.Exists(tmpDir + ccCliFilename))
             {
                 var update = "update.bat";
@@ -152,8 +140,26 @@ namespace Hypertherm.Update
                     updateStream.Write(Encoding.ASCII.GetBytes($"xcopy /I /Q /Y \"{tmpDir + ccCliFilename}\" \"{currentDir}\" \n"));
                     updateStream.Write(Encoding.ASCII.GetBytes("timeout /T 2 /nobreak >nul 2>&1 \n")); 
                 }
-                
+
                 ExecuteCommand(tmpDir + update, currentDir);
+            }
+        }
+
+        private async Task GetLatestReleasedVersionInfo()
+        {
+            _analyticsService.GenericTrace($"Acquiring the latest release's version info.");
+
+            SetAcceptHeaderJsonContent();
+            SetUserAgentHeader();
+
+            var response = await _httpClient.GetAsync($"https://api.github.com/repos/hypertherm/cutchart-cli/releases/latest");
+            string responseBody = await response.Content?.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode
+            && response.Content?.Headers?.ContentType?.MediaType == "application/json")
+            {
+                _latestReleasedVersion =  Version.Parse(JObject.Parse(responseBody)["tag_name"].Value<string>().Substring(1));
+                _latestReleaseUrl = JObject.Parse(responseBody)["assets"].Values<JObject>().ToList()[0]["browser_download_url"].Value<string>();
             }
         }
 
