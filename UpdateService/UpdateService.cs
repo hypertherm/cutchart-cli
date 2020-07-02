@@ -24,7 +24,6 @@ namespace Hypertherm.Update
 
     public class UpdateWithGitHubAPI : IUpdateService
     {
-        private bool _updateIsAvailable = false;
         private string gitHubUrl;
         private IAnalyticsService _analyticsService;
         private ILoggingService _logger;
@@ -51,9 +50,7 @@ namespace Hypertherm.Update
             _analyticsService.GenericTrace($"Checking for available updates.");
             var currentVersion = Version.Parse(Assembly.GetEntryAssembly().GetName().Version.ToString());
 
-            _updateIsAvailable = _latestReleasedVersion > currentVersion;
-
-            return _updateIsAvailable;
+            return _latestReleasedVersion > currentVersion;
         }
 
         public async Task<List<string>> ListReleases()

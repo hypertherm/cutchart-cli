@@ -103,7 +103,6 @@ namespace Hypertherm.CcCli
                         var settingToToggle = storageKeyBase + argHandler.ArgData.Settings;
                         if(_localStorageGlobalSettings.Exists(settingToToggle))
                         {
-                            // TODO: add validation that the given value works with the given setting
                             _localStorageGlobalSettings.Store(settingToToggle, !(bool)_localStorageGlobalSettings.Get(settingToToggle));
                             _localStorageGlobalSettings.Persist();
                         }
@@ -115,7 +114,7 @@ namespace Hypertherm.CcCli
 
                     // Possibly make a list of settings to iterate over or a standalone class to manage them
                     _logger.Log($"{storageKeyBase}settings" , MessageType.DisplayInfo);
-                    _logger.Log($"{CHECKFORUPDATES}: {_localStorageGlobalSettings.Get(storageKeyBase + CHECKFORUPDATES)}", MessageType.DisplayInfo);
+                    _logger.Log($"  {CHECKFORUPDATES}: {_localStorageGlobalSettings.Get(storageKeyBase + CHECKFORUPDATES)}", MessageType.DisplayInfo);
                 }
                 else if(argHandler.ArgData.Update)
                 {
@@ -128,25 +127,30 @@ namespace Hypertherm.CcCli
                     if(releases.Count > 0)
                     {
                         _logger.Log("Available versions:", MessageType.DisplayInfo);
-                        _logger.Log(" latest", MessageType.DisplayInfo);
                         foreach(var release in releases)
                         {
-                            _logger.Log($" {release}", MessageType.DisplayInfo);
+                            if("v" + _updater.LatestReleasedVersion().ToString() == release)
+                            {
+                                _logger.Log($"  {release} *latest*", MessageType.DisplayInfo);
+                            }
+                            else
+                            {
+                                _logger.Log($"  {release}", MessageType.DisplayInfo);
+                            }
                         }
-                        _logger.Log(" none\n", MessageType.DisplayInfo);
                         _logger.Log("Specify a version or just press 'Enter' to cancel.", MessageType.DisplayInfo);
 
                         if(Debugger.IsAttached)
                         {
                             // Change this to a version to debug the check for specifiv updates code.
-                            userResponse = "none";
+                            userResponse = "";
                         }
                         else
                         {
                             userResponse = Console.ReadLine();
                         }
 
-                        if(!string.IsNullOrEmpty(userResponse) && userResponse != "none")
+                        if(!string.IsNullOrEmpty(userResponse))
                         {
                             if(userResponse == "latest" && _updater.IsUpdateAvailable())
                             {
