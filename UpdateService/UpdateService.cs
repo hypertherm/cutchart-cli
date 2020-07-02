@@ -47,7 +47,8 @@ namespace Hypertherm.Update
 
         public bool IsUpdateAvailable()
         {
-            _analyticsService.GenericTrace($"Checking for available updates.");
+            _analyticsService.GenericTrace($"Checking for updates.");
+
             var currentVersion = Version.Parse(Assembly.GetEntryAssembly().GetName().Version.ToString());
 
             return _latestReleasedVersion > currentVersion;
@@ -144,7 +145,8 @@ namespace Hypertherm.Update
 
         private async Task GetLatestReleasedVersionInfo()
         {
-            _analyticsService.GenericTrace($"Acquiring the latest release's version info.");
+            _analyticsService.GenericTrace($"Getting the latest release's version information.");
+
 
             SetAcceptHeaderJsonContent();
             SetUserAgentHeader();
