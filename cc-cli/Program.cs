@@ -9,6 +9,9 @@ using Hypertherm.OidcAuth;
 using Hypertherm.Update;
 using static Hypertherm.Logging.LoggingService;
 using System.Diagnostics;
+using Hanssens.Net;
+using System.Text;
+using System.Threading;
 
 namespace Hypertherm.CcCli
 {
@@ -17,6 +20,12 @@ namespace Hypertherm.CcCli
         private static IUpdateService _updater;
         private static ILoggingService _logger;
         private static IAnalyticsService _analyzer;
+
+        private static LocalStorage _localStorageGlobalSettings;
+
+        // Global Settings Constants
+        private const string CHECKFORUPDATES = "check-for-updates";
+        private static bool _checkForUpdates = true;
 
         static void Main(string[] args)
         {
@@ -47,11 +56,35 @@ namespace Hypertherm.CcCli
                     .AddJsonFile("appsettings.json", true, true)
                     .AddJsonFile("authconfig.json", true, true)
                     .Build();
+
+            // Setup Local Encrypted Storage Config
+            var localStorageConfig = new LocalStorageConfiguration()
+            {
+                AutoLoad = true,
+                AutoSave = true,
+                EnableEncryption = true,
+                EncryptionSalt = Convert.ToBase64String(Encoding.ASCII.GetBytes(config["StorageSaltString"]))
+            };
+            // Create a Local Storage object for Global persisting settings
+            _localStorageGlobalSettings = new LocalStorage(localStorageConfig, config["StoragePassword"]);
+
+            var storageKeyBase = "cc-cli:global.";
+            if (_localStorageGlobalSettings.Exists(storageKeyBase + CHECKFORUPDATES))
+            {
+                _checkForUpdates = (bool)_localStorageGlobalSettings.Get(storageKeyBase + CHECKFORUPDATES);
+            }
+            else
+            {
+                _localStorageGlobalSettings.Store(storageKeyBase + CHECKFORUPDATES, _checkForUpdates);
+                _localStorageGlobalSettings.Persist();
+            }
             
             // Set up preferred IAnalyticsService, we are using Application Insights.
             // You can build your own if you extend the IAnalyticsService interface.
             _analyzer = new ApplicationInsightsAnalytics(config, _logger);
             _analyzer.GenericTrace("Analytics Initialized.");
+            
+            _updater = new UpdateWithGitHubAPI(_analyzer, _logger);
 
             if(argHandler.ArgData.NoCommands)
             {
@@ -63,71 +96,65 @@ namespace Hypertherm.CcCli
                 {
                     _logger.Log(Assembly.GetEntryAssembly().GetName().Version.ToString(), MessageType.DisplayInfo);
                 }
+                else if(!string.IsNullOrEmpty(argHandler.ArgData.Settings))
+                {
+                    if(argHandler.ArgData.Settings != "show")
+                    {
+                        var settingToToggle = storageKeyBase + argHandler.ArgData.Settings;
+                        if(_localStorageGlobalSettings.Exists(settingToToggle))
+                        {
+                            _localStorageGlobalSettings.Store(settingToToggle, !(bool)_localStorageGlobalSettings.Get(settingToToggle));
+                            _localStorageGlobalSettings.Persist();
+                        }
+                        else
+                        {
+                            _logger.Log($"\"{argHandler.ArgData.Settings}\" is not a valid setting.", MessageType.Error);
+                        }
+                    }
+
+                    // Possibly make a list of settings to iterate over or a standalone class to manage them
+                    _logger.Log($"{storageKeyBase}settings" , MessageType.DisplayInfo);
+                    _logger.Log($"  {CHECKFORUPDATES}: {_localStorageGlobalSettings.Get(storageKeyBase + CHECKFORUPDATES)}", MessageType.DisplayInfo);
+                }
                 else if(argHandler.ArgData.Update)
                 {
                     List<string> releases = new List<string>();
-
-                    _updater = new UpdateWithGitHubAPI(_analyzer, _logger);
-                    bool performUpdate = false;
-                    
-                    releases = _updater.ListReleases().GetAwaiter().GetResult();
+                    releases = _updater.ListReleases()
+                                       .GetAwaiter()
+                                       .GetResult();
 
                     var userResponse = "";
                     if(releases.Count > 0)
                     {
                         _logger.Log("Available versions:", MessageType.DisplayInfo);
-                        _logger.Log("latest", MessageType.DisplayInfo);
                         foreach(var release in releases)
                         {
-                            _logger.Log($"{release}", MessageType.DisplayInfo);
+                            if("v" + _updater.LatestReleasedVersion().ToString() == release)
+                            {
+                                _logger.Log($"  {release} *latest*", MessageType.DisplayInfo);
+                            }
+                            else
+                            {
+                                _logger.Log($"  {release}", MessageType.DisplayInfo);
+                            }
                         }
-                        _logger.Log("none\n", MessageType.DisplayInfo);
                         _logger.Log("Specify a version or just press 'Enter' to cancel.", MessageType.DisplayInfo);
 
                         if(Debugger.IsAttached)
                         {
                             // Change this to a version to debug the check for specifiv updates code.
-                            userResponse = "none";
+                            userResponse = "";
                         }
                         else
                         {
                             userResponse = Console.ReadLine();
                         }
 
-                        if(!string.IsNullOrEmpty(userResponse) && userResponse != "none")
+                        if(!string.IsNullOrEmpty(userResponse))
                         {
-                            if(userResponse == "latest" && _updater.IsUpdateAvailable().Result)
+                            if(userResponse == "latest" && _updater.IsUpdateAvailable())
                             {
-                                _logger.Log("An update is available. Continue with update? ('y/yes' or 'n/no')", MessageType.DisplayInfo);
-
-                                if(Debugger.IsAttached)
-                                {
-                                    // Change this to "y" to debug the check for updates code.
-                                    userResponse = "n";
-                                }
-                                else
-                                {
-                                    userResponse = Console.ReadLine();
-                                }
-
-                                while(userResponse != "y"
-                                && userResponse != "yes"
-                                && userResponse != "n"
-                                && userResponse != "no")
-                                {
-                                    _logger.Log("Please provide a valid response.", MessageType.DisplayInfo);
-                                    userResponse = Console.ReadLine();
-                                }
-
-                                performUpdate = userResponse == "y" || userResponse == "yes" ? true : false;
-
-                                if(performUpdate)
-                                {
-                                    _logger.Log("Updating to latest release.", MessageType.DisplayInfo);
-                                    _updater.Update()
-                                    .GetAwaiter()
-                                    .GetResult();
-                                }
+                                UpdateIsAvailableConversation();
                             }
                             else
                             {
@@ -172,6 +199,27 @@ namespace Hypertherm.CcCli
             }
             else
             {
+                // Check for updates if enabled
+                if(_checkForUpdates)
+                {
+                    if(_updater.IsUpdateAvailable())
+                    {
+                        if(UpdateIsAvailableConversation())
+                        {
+                            Thread.Sleep(5000);
+
+                            return;
+                        }
+                        _logger.Log("Disable update notifications? ('y/yes' or 'n/no')", MessageType.DisplayInfo);
+                        
+                        // check for user response and store it in local storage for future runs
+                        var userResponse = !UserYesNoRespose();
+
+                        _localStorageGlobalSettings.Store(storageKeyBase + CHECKFORUPDATES, userResponse);
+                        _localStorageGlobalSettings.Persist();
+                    }
+                }
+
                 var _authenticator = new OidcAuthService(config, _analyzer, _logger);
 
                 if (argHandler.ArgData.Logout)
@@ -281,6 +329,51 @@ namespace Hypertherm.CcCli
                     }
                 }
             }
+        }
+
+        private static bool UpdateIsAvailableConversation(string testResponse = "n")
+        {
+            var updated = false;
+
+            _logger.Log($"An update to cc-cli v{_updater.LatestReleasedVersion().ToString()} is available. Continue with update? ('y/yes' or 'n/no')", MessageType.DisplayInfo);
+
+            if(UserYesNoRespose(testResponse))
+            {
+                _logger.Log("Updating to latest release.", MessageType.DisplayInfo);
+                _updater.Update()
+                .GetAwaiter()
+                .GetResult();
+
+                updated = true;
+            }
+
+            return updated;
+        }
+
+        // Pass in a value to debug specific user responses.
+        private static bool UserYesNoRespose(string testResponse = "n")
+        {
+            var userResponse = "";
+
+            if(Debugger.IsAttached)
+            {
+                userResponse = testResponse.ToLower();
+            }
+            else
+            {
+                userResponse = Console.ReadLine().ToLower();
+            }
+
+            while(userResponse != "y"
+                && userResponse != "yes"
+                && userResponse != "n"
+                && userResponse != "no")
+            {
+                _logger.Log("Please provide a valid response.", MessageType.DisplayInfo);
+                userResponse = Console.ReadLine();
+            }
+
+            return userResponse == "y" || userResponse == "yes";
         }
 
         private static void ExitStatus(string outfile)
