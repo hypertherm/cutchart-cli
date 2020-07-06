@@ -46,7 +46,7 @@ namespace Hypertherm.OidcAuth
             var browser = new SystemBrowser(Int32.Parse(_config["RedirectUriPort"]));
             string redirectUri = string.Format($"http://127.0.0.1:{browser.Port}");
 
-            _scopes = "openid profile email api offline_access read create_custom read_custom read:truehole read:truebevel";
+            _scopes = "openid profile email api offline_access read read:custom write:custom read:truehole read:truebevel";
 
             var oidcOptions = new OidcClientOptions
             {
