@@ -35,15 +35,30 @@ namespace Hypertherm.Logging
 
         public void Log(string message, MessageType type)
         {
+            ConsoleColor defaultConsoleColor = Console.ForegroundColor;
+            
             if (type == MessageType.Error)
             {
                 _error = true;
+                message = $"  {message}";
+                Console.ForegroundColor = ConsoleColor.Red;
+            }
+            else if (type == MessageType.Warning)
+            {
+                message = $"  {message}";
+                Console.ForegroundColor = ConsoleColor.Yellow;
+            }
+            else if (type == MessageType.DebugInfo)
+            {
+                Console.ForegroundColor = ConsoleColor.DarkCyan;
             }
 
             if (type <= _logggingLevel)
             {
                 Console.WriteLine(message);
             }
+
+            Console.ForegroundColor = defaultConsoleColor;
 
             using (StreamWriter w = File.AppendText(_filename))
             {

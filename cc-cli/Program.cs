@@ -17,6 +17,8 @@ namespace Hypertherm.CcCli
 {
     class Program
     {
+        private static ConsoleColor _defaultConsoleColor = Console.ForegroundColor;
+
         private static IUpdateService _updater;
         private static ILoggingService _logger;
         private static IAnalyticsService _analyzer;
@@ -47,7 +49,6 @@ namespace Hypertherm.CcCli
 
             if (argHandler.ArgData.Debug)
             {
-                _logger.Log(argHandler.ArgData.LogString, MessageType.DebugInfo);
                 _logger.Log(argHandler.ArgData.ToString(), MessageType.DebugInfo);
             }
 
@@ -83,7 +84,7 @@ namespace Hypertherm.CcCli
             // You can build your own if you extend the IAnalyticsService interface.
             _analyzer = new ApplicationInsightsAnalytics(config, _logger);
             _analyzer.GenericTrace("Analytics Initialized.");
-            
+
             _updater = new UpdateWithGitHubAPI(_analyzer, _logger);
 
             if(argHandler.ArgData.NoCommands)
@@ -140,15 +141,8 @@ namespace Hypertherm.CcCli
                         }
                         _logger.Log("Specify a version or just press 'Enter' to cancel.", MessageType.DisplayInfo);
 
-                        if(Debugger.IsAttached)
-                        {
-                            // Change this to a version to debug the check for specifiv updates code.
-                            userResponse = "";
-                        }
-                        else
-                        {
-                            userResponse = Console.ReadLine();
-                        }
+                        // Change argumenet string to desired response when debugging
+                        userResponse = GetUserInput("");
 
                         if(!string.IsNullOrEmpty(userResponse))
                         {
@@ -186,7 +180,7 @@ namespace Hypertherm.CcCli
                         {
                             _logger.Log("Update process was cancelled.", MessageType.DisplayInfo);
                         }
-                    }  
+                    }
                 }
                 else if (argHandler.ArgData.DumpLog)
                 {
@@ -284,13 +278,12 @@ namespace Hypertherm.CcCli
                                     {
                                         if (argHandler.ArgData.OutFile != null)
                                         {
-                                            var error = ccApiService.GetXmlTransformedCutChartData(
+                                            ccApiService.GetXmlTransformedCutChartData(
                                                 argHandler.ArgData.OutFile, argHandler.ArgData.XmlFile,
                                                 argHandler.ArgData.Product,
                                                 argHandler.ArgData.CcType)
                                                 .GetAwaiter()
                                                 .GetResult();
-                                            _logger.Log(error, MessageType.Error);
 
                                             ExitStatus(argHandler.ArgData.OutFile);
                                         }
@@ -329,6 +322,9 @@ namespace Hypertherm.CcCli
                     }
                 }
             }
+
+            // Newline buffer at end of output before new command prompt displays
+            _logger.Log("", MessageType.DisplayInfo);
         }
 
         private static bool UpdateIsAvailableConversation(string testResponse = "n")
@@ -353,16 +349,8 @@ namespace Hypertherm.CcCli
         // Pass in a value to debug specific user responses.
         private static bool UserYesNoRespose(string testResponse = "n")
         {
-            var userResponse = "";
-
-            if(Debugger.IsAttached)
-            {
-                userResponse = testResponse.ToLower();
-            }
-            else
-            {
-                userResponse = Console.ReadLine().ToLower();
-            }
+            // Change argumenet string to desired response when debugging
+            var userResponse = GetUserInput(testResponse);
 
             while(userResponse != "y"
                 && userResponse != "yes"
@@ -370,10 +358,29 @@ namespace Hypertherm.CcCli
                 && userResponse != "no")
             {
                 _logger.Log("Please provide a valid response.", MessageType.DisplayInfo);
-                userResponse = Console.ReadLine();
+                userResponse = GetUserInput(testResponse);
             }
 
             return userResponse == "y" || userResponse == "yes";
+        }
+
+        private static string GetUserInput(string debugResponse = "")
+        {
+            var userResponse = "";
+
+            if(Debugger.IsAttached)
+            {
+                // Change this to a version to debug the check for specifiv updates code.
+                userResponse = debugResponse;
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.Magenta;
+                userResponse = Console.ReadLine().ToLower();
+                Console.ForegroundColor = _defaultConsoleColor;
+            }
+
+            return userResponse;
         }
 
         private static void ExitStatus(string outfile)
