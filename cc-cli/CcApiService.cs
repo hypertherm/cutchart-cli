@@ -124,18 +124,27 @@ namespace Hypertherm.CcCli
 
         public async Task<List<JObject>> GetProducts()
         {
-            SetAcceptHeaderJsonContent();
-            var url = CcApiUtilities.BuildUrl();
-            HttpResponseMessage response = await _httpClient.GetAsync(url);
-            string responseBody = await response.Content?.ReadAsStringAsync();
-            
-            _logger.Log($"ProductResponseContent: {responseBody}", MessageType.DebugInfo);
+            var products = new List<JObject>(){};
 
-            var products = new List<JObject>();
-            if (response.IsSuccessStatusCode
-            && response.Content?.Headers?.ContentType?.MediaType == "application/json")
+            if(NetworkUtilities.NetworkConnectivity.IsNetworkAvailable())
             {
-                products = JObject.Parse(responseBody)["products"].Values<JObject>().ToList();
+                SetAcceptHeaderJsonContent();
+                var url = CcApiUtilities.BuildUrl();
+                HttpResponseMessage response = await _httpClient.GetAsync(url);
+                string responseBody = await response.Content?.ReadAsStringAsync();
+                
+                _logger.Log($"ProductResponseContent: {responseBody}", MessageType.DebugInfo);
+
+                
+                if (response.IsSuccessStatusCode
+                && response.Content?.Headers?.ContentType?.MediaType == "application/json")
+                {
+                    products = JObject.Parse(responseBody)["products"].Values<JObject>().ToList();
+                }
+            }
+            else
+            {
+                _logger.Log("Could not access product information. No network connection detected.", MessageType.Error);
             }
 
             return products;
@@ -166,52 +175,10 @@ namespace Hypertherm.CcCli
                             string ccFilename, string product,
                             string units = "english", string type = "XLSX")
         {
-            if (ccFilename != "" && (type.ToUpper() == "XLSX" || type.ToUpper() == "DB"))
+            if(NetworkUtilities.NetworkConnectivity.IsNetworkAvailable())
             {
-                if (type.ToUpper() == "XLSX")
+                if (ccFilename != "" && (type.ToUpper() == "XLSX" || type.ToUpper() == "DB"))
                 {
-                    SetAcceptHeaderXlsxContent();
-                }
-                else if (type.ToUpper() == "DB")
-                {
-                    SetAcceptHeaderDbContent();
-                }
-
-                var url = CcApiUtilities.BuildUrl(
-                    new[] { product },
-                    new Dictionary<string, string>() { { "units", units } });
-                var request = new HttpRequestMessage(HttpMethod.Get, url);
-
-                using (Stream contentStream = await (await _httpClient.SendAsync(request)).Content.ReadAsStreamAsync(),
-                stream = new FileStream(ccFilename, FileMode.Create, FileAccess.Write, FileShare.None))
-                {
-                    await contentStream.CopyToAsync(stream);
-                }
-            }
-        }
-
-        public async Task<string> GetXmlTransformedCutChartData(
-                            string ccFilename, string xmlFilename,
-                            string productName,
-                            string type = "XLSX")
-        {
-            string responseBody = "";
-            string error = "";
-
-            if (ccFilename != "" && (type.ToUpper() == "XLSX" || type.ToUpper() == "DB"))
-            {
-                SetAcceptHeaderJsonContent();
-                var url = CcApiUtilities.BuildUrl(new[] { productName, "customs" });
-                HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, url);
-                request.Content = new StringContent(File.ReadAllText(xmlFilename),
-                                Encoding.UTF8,
-                                "application/xml");
-
-                var response = await _httpClient.SendAsync(request);
-                if (response.IsSuccessStatusCode)
-                {
-                    responseBody = await response.Content.ReadAsStringAsync();
-
                     if (type.ToUpper() == "XLSX")
                     {
                         SetAcceptHeaderXlsxContent();
@@ -220,8 +187,11 @@ namespace Hypertherm.CcCli
                     {
                         SetAcceptHeaderDbContent();
                     }
-                    url = CcApiUtilities.BuildUrl(new[] { productName, "customs", JObject.Parse(responseBody)["id"].Value<string>() });
-                    request = new HttpRequestMessage(HttpMethod.Get, url);
+
+                    var url = CcApiUtilities.BuildUrl(
+                        new[] { product },
+                        new Dictionary<string, string>() { { "units", units } });
+                    var request = new HttpRequestMessage(HttpMethod.Get, url);
 
                     using (Stream contentStream = await (await _httpClient.SendAsync(request)).Content.ReadAsStreamAsync(),
                     stream = new FileStream(ccFilename, FileMode.Create, FileAccess.Write, FileShare.None))
@@ -229,16 +199,65 @@ namespace Hypertherm.CcCli
                         await contentStream.CopyToAsync(stream);
                     }
                 }
-                else
-                {
-                    responseBody = await response.Content.ReadAsStringAsync();
-                    error = JObject.Parse(responseBody)["error"].Value<string>();
-                }
             }
-
-            return error;
+            else
+            {
+                _logger.Log("Could not access cutchart data. No network connection detected.", MessageType.Error);
+            }
         }
 
+        public async Task GetXmlTransformedCutChartData(
+                            string ccFilename, string xmlFilename,
+                            string productName,
+                            string type = "XLSX")
+        {
+            if(NetworkUtilities.NetworkConnectivity.IsNetworkAvailable())
+            {
+                if (ccFilename != "" && (type.ToUpper() == "XLSX" || type.ToUpper() == "DB"))
+                {
+                    SetAcceptHeaderJsonContent();
+
+                    var url = CcApiUtilities.BuildUrl(new[] { productName, "customs" });
+                    HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, url);
+                    request.Content = new StringContent(File.ReadAllText(xmlFilename),
+                                    Encoding.UTF8,
+                                    "application/xml");
+
+                    string responseBody = "";
+                    var response = await _httpClient.SendAsync(request);
+                    if (response.IsSuccessStatusCode)
+                    {
+                        responseBody = await response.Content.ReadAsStringAsync();
+
+                        if (type.ToUpper() == "XLSX")
+                        {
+                            SetAcceptHeaderXlsxContent();
+                        }
+                        else if (type.ToUpper() == "DB")
+                        {
+                            SetAcceptHeaderDbContent();
+                        }
+                        url = CcApiUtilities.BuildUrl(new[] { productName, "customs", JObject.Parse(responseBody)["id"].Value<string>() });
+                        request = new HttpRequestMessage(HttpMethod.Get, url);
+
+                        using (Stream contentStream = await (await _httpClient.SendAsync(request)).Content.ReadAsStreamAsync(),
+                        stream = new FileStream(ccFilename, FileMode.Create, FileAccess.Write, FileShare.None))
+                        {
+                            await contentStream.CopyToAsync(stream);
+                        }
+                    }
+                    else
+                    {
+                        responseBody = await response.Content.ReadAsStringAsync();
+                        _logger.Log(JObject.Parse(responseBody)["error"].Value<string>(), MessageType.Error);
+                    }
+                }
+            }
+            else
+            {
+                _logger.Log("Could not access custom cutchart data. No network connection detected.", MessageType.Error);
+            }
+        }
     }
 
     public class CcApiUtilities

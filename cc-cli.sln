@@ -15,6 +15,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AnalyticsService", "Analyti
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UpdateService", "UpdateService\UpdateService.csproj", "{408D11C5-1DCE-4434-BC4D-BD9E32C791C3}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NetworkUtilities", "NetworkUtilities\NetworkUtilities.csproj", "{852CDE0E-2AA1-486E-8558-9B5D7E085AB2}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -100,5 +102,17 @@ Global
 		{408D11C5-1DCE-4434-BC4D-BD9E32C791C3}.Release|x64.Build.0 = Release|Any CPU
 		{408D11C5-1DCE-4434-BC4D-BD9E32C791C3}.Release|x86.ActiveCfg = Release|Any CPU
 		{408D11C5-1DCE-4434-BC4D-BD9E32C791C3}.Release|x86.Build.0 = Release|Any CPU
+		{852CDE0E-2AA1-486E-8558-9B5D7E085AB2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{852CDE0E-2AA1-486E-8558-9B5D7E085AB2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{852CDE0E-2AA1-486E-8558-9B5D7E085AB2}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{852CDE0E-2AA1-486E-8558-9B5D7E085AB2}.Debug|x64.Build.0 = Debug|Any CPU
+		{852CDE0E-2AA1-486E-8558-9B5D7E085AB2}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{852CDE0E-2AA1-486E-8558-9B5D7E085AB2}.Debug|x86.Build.0 = Debug|Any CPU
+		{852CDE0E-2AA1-486E-8558-9B5D7E085AB2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{852CDE0E-2AA1-486E-8558-9B5D7E085AB2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{852CDE0E-2AA1-486E-8558-9B5D7E085AB2}.Release|x64.ActiveCfg = Release|Any CPU
+		{852CDE0E-2AA1-486E-8558-9B5D7E085AB2}.Release|x64.Build.0 = Release|Any CPU
+		{852CDE0E-2AA1-486E-8558-9B5D7E085AB2}.Release|x86.ActiveCfg = Release|Any CPU
+		{852CDE0E-2AA1-486E-8558-9B5D7E085AB2}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

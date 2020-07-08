@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\AnalyticsService\AnalyticsService.csproj" />
     <ProjectReference Include="..\LoggingService\LoggingService.csproj" />
+    <ProjectReference Include="..\NetworkUtilities\NetworkUtilities.csproj" />
     <ProjectReference Include="..\OidcAuthService\OidcAuthService.csproj" />
     <ProjectReference Include="..\UpdateService\UpdateService.csproj" />
   </ItemGroup>
