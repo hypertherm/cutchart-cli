@@ -12,6 +12,11 @@ using System.Diagnostics;
 using Hanssens.Net;
 using System.Text;
 using System.Threading;
+using Microsoft.Extensions.DependencyInjection;
+using System.Net;
+using Polly;
+using Polly.Extensions.Http;
+using System.Net.Http;
 
 namespace Hypertherm.CcCli
 {
@@ -29,12 +34,73 @@ namespace Hypertherm.CcCli
         private const string CHECKFORUPDATES = "check-for-updates";
         private static bool _checkForUpdates = true;
 
+        static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy()
+        {
+            return HttpPolicyExtensions
+                .HandleTransientHttpError()
+                .OrResult(msg => msg.StatusCode == System.Net.HttpStatusCode.NotFound)
+                .WaitAndRetryAsync(6, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
+        }
+
         static void Main(string[] args)
         {
             ArgumentHandler argHandler = new ArgumentHandler(args);
 
-            MessageType loggerLevel = argHandler.ArgData.Debug ? MessageType.DebugInfo : MessageType.Error;
-            _logger = new LoggingService(loggerLevel);
+            CookieContainer cookieContainer = new CookieContainer();
+            HttpClientHandler _handler = new HttpClientHandler();
+
+            //setup our DI
+            var serviceCollection = new ServiceCollection()
+                .AddSingleton<IConfiguration>(s =>
+                    {
+                        return new ConfigurationBuilder()
+                            .AddJsonFile("appsettings.json", true, true)
+                            .AddJsonFile("authconfig.json", true, true)
+                            .Build();
+                    }
+                )
+                .AddSingleton<ILoggingService, LoggingService>(s => 
+                    {
+                        MessageType loggerLevel = argHandler.ArgData.Debug ? MessageType.DebugInfo : MessageType.Error;
+                        return new LoggingService(loggerLevel);
+                    }
+                )
+                .AddSingleton<IAnalyticsService, ApplicationInsightsAnalytics>();
+
+                serviceCollection.AddHttpClient<IUpdateService, UpdateWithGitHubAPI>(client =>
+                    {
+                        client.BaseAddress = new Uri("https://api.github.com/repos/hypertherm/cutchart-cli/releases");
+                    }
+                );
+
+                serviceCollection
+                    .AddHttpClient<IApiService, CcApiService>()
+                    .ConfigureHttpMessageHandlerBuilder(builder =>
+                        {
+                            if (builder.PrimaryHandler is HttpClientHandler handler)
+                            {
+                                _handler = handler;
+                                handler.CookieContainer = cookieContainer;
+                                handler.UseCookies = true;
+                            }
+                        }
+                    );
+                
+            
+            ServiceProvider provider = serviceCollection.BuildServiceProvider();
+
+            
+            cookieContainer.Add(
+                CcApiUtilities.BuildUrl(),
+                new Cookie(
+                    "CorrellationId",
+                    provider.GetRequiredService<IAnalyticsService>().SessionId
+                )
+            );
+
+            _logger = provider.GetRequiredService<ILoggingService>();
+            _analyzer = provider.GetRequiredService<IAnalyticsService>();
+            _updater = provider.GetRequiredService<IUpdateService>();
 
             // Since the argumenthandler needs to establish the options for the logger
             // for now the argumenthandler builds up an error string and the prints it out.
@@ -52,11 +118,7 @@ namespace Hypertherm.CcCli
                 _logger.Log(argHandler.ArgData.ToString(), MessageType.DebugInfo);
             }
 
-            // Get config info from files
-            IConfiguration config = new ConfigurationBuilder()
-                    .AddJsonFile("appsettings.json", true, true)
-                    .AddJsonFile("authconfig.json", true, true)
-                    .Build();
+           
 
             // Setup Local Encrypted Storage Config
             var localStorageConfig = new LocalStorageConfiguration()
@@ -64,10 +126,17 @@ namespace Hypertherm.CcCli
                 AutoLoad = true,
                 AutoSave = true,
                 EnableEncryption = true,
-                EncryptionSalt = Convert.ToBase64String(Encoding.ASCII.GetBytes(config["StorageSaltString"]))
+                EncryptionSalt = Convert.ToBase64String(
+                    Encoding.ASCII.GetBytes(
+                        provider.GetRequiredService<IConfiguration>()["StorageSaltString"]
+                    )
+                )
             };
             // Create a Local Storage object for Global persisting settings
-            _localStorageGlobalSettings = new LocalStorage(localStorageConfig, config["StoragePassword"]);
+            _localStorageGlobalSettings = new LocalStorage(
+                localStorageConfig, 
+                provider.GetRequiredService<IConfiguration>()["StoragePassword"]
+            );
 
             var storageKeyBase = "cc-cli:global.";
             if (_localStorageGlobalSettings.Exists(storageKeyBase + CHECKFORUPDATES))
@@ -82,10 +151,7 @@ namespace Hypertherm.CcCli
             
             // Set up preferred IAnalyticsService, we are using Application Insights.
             // You can build your own if you extend the IAnalyticsService interface.
-            _analyzer = new ApplicationInsightsAnalytics(config, _logger);
             _analyzer.GenericTrace("Analytics Initialized.");
-
-            _updater = new UpdateWithGitHubAPI(_analyzer, _logger);
 
             if(argHandler.ArgData.NoCommands)
             {
@@ -214,7 +280,12 @@ namespace Hypertherm.CcCli
                     }
                 }
 
-                var _authenticator = new OidcAuthService(config, _analyzer, _logger);
+                var _authenticator = new OidcAuthService(
+                    _handler,
+                    provider.GetRequiredService<IConfiguration>(),
+                    provider.GetRequiredService<IAnalyticsService>(),
+                    provider.GetRequiredService<ILoggingService>()
+                );
 
                 if (argHandler.ArgData.Logout)
                 {
@@ -223,7 +294,8 @@ namespace Hypertherm.CcCli
                 
                 if (!String.IsNullOrEmpty(argHandler.ArgData.Command))
                 {
-                    CcApiService ccApiService = new CcApiService(_analyzer, _authenticator, _logger);
+                    IApiService ccApiService = provider.GetRequiredService<IApiService>();
+                    ccApiService.SetupAuth(_authenticator);
                     if(!ccApiService.IsError)
                     {
                         if (argHandler.ArgData.Command == "products")

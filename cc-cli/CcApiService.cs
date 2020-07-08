@@ -16,57 +16,45 @@ using static Hypertherm.Logging.LoggingService;
 
 namespace Hypertherm.CcCli
 {
-    public class CcApiService
+    public interface IApiService
+    {
+        bool IsError { get; }
+        Task<HttpStatusCode> IsCcApiAvailable();
+        Task<List<JObject>> GetProducts();
+        Task<List<string>> GetProductNames();
+        Task GetAllCutChartData(string ccFilename, string type = "XLSX");
+        Task GetBaseCutChartData(
+                            string ccFilename, string product,
+                            string units = "english", string type = "XLSX");
+        Task GetXmlTransformedCutChartData(
+            string ccFilename, string xmlFilename,
+            string productName,
+            string type = "XLSX");
+
+        void SetupAuth(IAuthenticationService authService);
+    }
+    public class CcApiService: IApiService
     {
         private ILoggingService _logger;
-        private static HttpClient _httpClient = new HttpClient();
-        private HttpClientHandler _clientHandler;
+        private HttpClient _httpClient;
         private IAnalyticsService _analyticsService;
-        private IAuthenticationService _authService;
 
         private bool _isError = false;
         public bool IsError => _isError;
-        public CcApiService(IAnalyticsService analyticsService = null, IAuthenticationService authService = null,
-                    ILoggingService logger = null, HttpClientHandler clientHandler = null)
+        public CcApiService(IAnalyticsService analyticsService,
+                    ILoggingService logger, HttpClient client)
         {
             _logger = logger;
-            
-            if(clientHandler == null)
-            {
-                // Production path - create a real clientHandler
-                _clientHandler = new HttpClientHandler();
-            }
-            else
-            {
-                // Test path - use mocked clientHandler
-                _clientHandler = clientHandler;
-                _httpClient = new HttpClient(_clientHandler);
-            }
-
-            if(analyticsService != null
-                || authService != null)
-            {
-                // Production path - requires real analytics and authenitcation services
-                _analyticsService = analyticsService;
-                _authService = authService;
-
-                Setup();
-            }
+            _analyticsService = analyticsService;
+            _httpClient = client;
         }
 
-        public void Setup()
+        public void SetupAuth(IAuthenticationService authService)
         {
-            var cookieContainer = new CookieContainer();
-            _clientHandler.CookieContainer = cookieContainer;
-
-            _httpClient = new HttpClient(_clientHandler);
-            var url = CcApiUtilities.BuildUrl();
-            cookieContainer.Add(url, new Cookie("CorrellationId", _analyticsService.SessionId));
-            
             try
             {
                 _httpClient.DefaultRequestHeaders.Authorization =
-                        new AuthenticationHeaderValue("Bearer", _authService.Login().GetAwaiter().GetResult());
+                        new AuthenticationHeaderValue("Bearer", authService.Login().GetAwaiter().GetResult());
             }
             catch(Exception e)
             {

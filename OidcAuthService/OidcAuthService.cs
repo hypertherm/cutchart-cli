@@ -16,12 +16,6 @@ using static Hypertherm.Logging.LoggingService;
 
 namespace Hypertherm.OidcAuth
 {
-    public interface IAuthenticationService
-    {
-        Task<string> Login(string user = "default-user");
-        void Logout(string user = "default-user");
-    }
-
     public class OidcAuthService : IAuthenticationService
     {
         private IConfiguration _config;
@@ -36,7 +30,7 @@ namespace Hypertherm.OidcAuth
         private JwtSecurityToken _accessToken;
         private string _refreshToken;
 
-        public OidcAuthService(IConfiguration config, IAnalyticsService analyticsService, ILoggingService logger)
+        public OidcAuthService(HttpClientHandler clientHandler, IConfiguration config, IAnalyticsService analyticsService, ILoggingService logger)
         {
             _config = config;
             _analyticsService = analyticsService;
@@ -56,8 +50,9 @@ namespace Hypertherm.OidcAuth
                 Scope = _scopes,
                 FilterClaims = false,
                 Browser = browser,
-                RefreshTokenInnerHttpHandler = new HttpClientHandler(),
-                Policy = new Policy { RequireAccessTokenHash = false }
+                RefreshTokenInnerHttpHandler = clientHandler,
+                BackchannelHandler = clientHandler,
+                Policy = new Policy { RequireAccessTokenHash = false },
             };
             _oidcClient = new OidcClient(oidcOptions);
 

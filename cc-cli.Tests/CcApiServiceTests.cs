@@ -8,6 +8,8 @@ using Hypertherm.CcCli.Mocks;
 using System;
 using static Hypertherm.Logging.LoggingService;
 using Hypertherm.Logging;
+using Moq;
+using Hypertherm.Analytics;
 
 namespace Hypertherm.CcCli.Tests
 {
@@ -115,15 +117,18 @@ namespace Hypertherm.CcCli.Tests
         }
 
         CcApiService _ccApiService;
-        HttpClientHandler mockClientHandler;
         private CcApiService CreateMockCcApiService(bool reset = false)
         {
             if (_ccApiService == null || reset)
             {
-                mockClientHandler = HttpTestUtilities.CreateMockClientHandler();
+                HttpClient client = new HttpClient(HttpTestUtilities.CreateMockClientHandler());
 
                 var logger = new LoggingService(MessageType.Error);
-                _ccApiService = new CcApiService(logger:logger, clientHandler:mockClientHandler);
+                _ccApiService = new CcApiService(
+                  analyticsService:Mock.Of<IAnalyticsService>(),
+                  logger:logger,
+                  client:client
+                );
             }
 
             return _ccApiService;
