@@ -12,6 +12,8 @@ using System.IO;
 using System.Text;
 using System.Diagnostics;
 using static Hypertherm.Logging.LoggingService;
+using System.Net.Mime;
+using System.Net.Http.Headers;
 
 namespace Hypertherm.Update
 {
@@ -55,15 +57,13 @@ namespace Hypertherm.Update
                 SetUserAgentHeader();
 
                 var response = await _httpClient.GetAsync("");
-                string responseBody = await response.Content?.ReadAsStringAsync();
-
-                if (response.IsSuccessStatusCode
-                && response.Content?.Headers?.ContentType?.MediaType == "application/json")
-                {
-                    var releaseArray = JArray.Parse(responseBody);
-
-                    foreach(var release in releaseArray)
+                    if (response.Content?.Headers?.ContentType?.MediaType == MediaTypeNames.Application.Json)
                     {
+                        string responseBody = await response.Content?.ReadAsStringAsync();
+                        var releaseArray = JArray.Parse(responseBody);
+
+                        foreach(var release in releaseArray)
+                        {
                         releases.Add(release["tag_name"].Value<string>());
                     }
                 }
@@ -177,7 +177,7 @@ namespace Hypertherm.Update
 
             _httpClient.DefaultRequestHeaders
                 .Accept
-                .Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+                .Add(new MediaTypeWithQualityHeaderValue(MediaTypeNames.Application.Json));
         }
 
         private void SetUserAgentHeader()

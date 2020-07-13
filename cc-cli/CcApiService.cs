@@ -13,6 +13,7 @@ using Hypertherm.Logging;
 using Hypertherm.Analytics;
 using Hypertherm.OidcAuth;
 using static Hypertherm.Logging.LoggingService;
+using System.Net.Mime;
 
 namespace Hypertherm.CcCli
 {
@@ -76,7 +77,7 @@ namespace Hypertherm.CcCli
 
             _httpClient.DefaultRequestHeaders
                 .Accept
-                .Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+                .Add(new MediaTypeWithQualityHeaderValue(MediaTypeNames.Application.Json));
         }
 
         private void SetAcceptHeaderXlsxContent()
@@ -87,7 +88,7 @@ namespace Hypertherm.CcCli
 
             _httpClient.DefaultRequestHeaders
                 .Accept
-                .Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+                .Add(new MediaTypeWithQualityHeaderValue("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
         }
 
         private void SetAcceptHeaderDbContent()
@@ -98,7 +99,7 @@ namespace Hypertherm.CcCli
 
             _httpClient.DefaultRequestHeaders
                 .Accept
-                .Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/octet-stream"));
+                .Add(new MediaTypeWithQualityHeaderValue(MediaTypeNames.Application.Octet));
         }
 
         public async Task<HttpStatusCode> IsCcApiAvailable()
@@ -130,14 +131,18 @@ namespace Hypertherm.CcCli
                 string responseBody = await response.Content?.ReadAsStringAsync();
                 
                 _logger.Log($"ProductResponseContent: {responseBody}", MessageType.DebugInfo);
-
+                    if (response.Content?.Headers?.ContentType?.MediaType == MediaTypeNames.Application.Json)
+                    {
                 
-                if (response.IsSuccessStatusCode
-                && response.Content?.Headers?.ContentType?.MediaType == "application/json")
-                {
-                    products = JObject.Parse(responseBody)["products"].Values<JObject>().ToList();
+                        products = JObject.Parse(responseBody)
+                            ["products"]
+                            .Values<JObject>()
+                            .ToList();
+                    }
+
+
                 }
-            }
+
             else
             {
                 _logger.Log("Could not access product information. No network connection detected.", MessageType.Error);
