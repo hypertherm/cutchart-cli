@@ -9,7 +9,11 @@ using System;
 using static Hypertherm.Logging.LoggingService;
 using Hypertherm.Logging;
 using Moq;
+using Moq.Protected;
 using Hypertherm.Analytics;
+using Microsoft.Extensions.DependencyInjection;
+using System.Threading.Tasks;
+using System.Threading;
 
 namespace Hypertherm.CcCli.Tests
 {
@@ -17,26 +21,58 @@ namespace Hypertherm.CcCli.Tests
     [Ignore("Waiting api endpoint", Until = "2020-01-31 12:00:00Z")]
     public class CcApiServiceTests
     {
-        List<string> _productNames;
-
-        [SetUp]
-        public void Setup()
-        {
-            CreateMockCcApiService();
-            _productNames = new List<string>(){"powermax105", "maxpro200"};
-        }
-
         [Test]
+        ///<summary>
+        /// As all requests to the API use the same HTTP client.
+        /// Therefore if we test one of the API interactions we test all of them.
+        /// </summary>
         public void IsBaseCcApiEndpointAvailable()
         {
-            var status = _ccApiService.IsCcApiAvailable().Result;
+          Mock<HttpMessageHandler> mockHandler = new Mock<HttpMessageHandler>(MockBehavior.Strict);
+            mockHandler
+                .Protected()
+                .SetupSequence<Task<HttpResponseMessage>>(
+                    "SendAsync",
+                    ItExpr.IsAny<HttpRequestMessage>(),
+                    ItExpr.IsAny<CancellationToken>()
+                )
+                .ReturnsAsync(new HttpResponseMessage()
+                  {
+                    StatusCode = HttpStatusCode.BadRequest,
+                  }
+                )
+                .ReturnsAsync(new HttpResponseMessage()
+                  {
+                    StatusCode = HttpStatusCode.Unauthorized,
+                  }
+                )
+                .ReturnsAsync(new HttpResponseMessage()
+                  {
+                    StatusCode = HttpStatusCode.Forbidden,
+                  }
+                )
+                .ReturnsAsync(new HttpResponseMessage()
+                  {
+                    StatusCode = HttpStatusCode.OK
+                  }
+                );
+            
+            IServiceCollection serviceCollection = new ServiceCollection();
+            serviceCollection.AddSingleton<IAnalyticsService>(Mock.Of<IAnalyticsService>());
+            serviceCollection.AddSingleton<ILoggingService>(Mock.Of<ILoggingService>());
+            ApplicationServiceProvider.AddApiService(mockHandler.Object, serviceCollection);
+            ServiceProvider provider = serviceCollection.BuildServiceProvider();
+            CcApiService service = (CcApiService) provider.GetRequiredService<IApiService>();
+            var status = service.IsCcApiAvailable().Result;
 
-            Assert.AreEqual(HttpStatusCode.OK, status, "CutChart API is currently unavailable.");
+            status.Should().Be(HttpStatusCode.OK, "CutChart API is currently unavailable.");
         }
 
        [Test]
         public void ValidProductNameExists()
         {
+            CcApiService _ccApiService = CreateMockCcApiService();
+            List<string> _productNames = new List<string>(){"powermax105", "maxpro200"};
             var productNames = _ccApiService.GetProductNames().Result;
 
             Assert.True(productNames.Contains(_productNames[0]), _productNames[0] + " product does not exist.");
@@ -45,6 +81,8 @@ namespace Hypertherm.CcCli.Tests
         [Test]
         public void InvalidOrMissingFilenameGetBaseCutChartData()
         {
+            CcApiService _ccApiService = CreateMockCcApiService();
+            List<string> _productNames = new List<string>(){"powermax105", "maxpro200"};
             string outputXlsxFilename = "";
             
             Action A = () => 
@@ -57,6 +95,8 @@ namespace Hypertherm.CcCli.Tests
         [Test]
         public void ValidProductCutChartDataAsXlsx()
         {
+            CcApiService _ccApiService = CreateMockCcApiService();
+            List<string> _productNames = new List<string>(){"powermax105", "maxpro200"};
             string outputXlsxFilename = "./cutcharts.xlsx";
 
             Action A = () =>
@@ -71,6 +111,8 @@ namespace Hypertherm.CcCli.Tests
         [Test]
         public void AllBaseCutChartDataAsDb()
         {
+            CcApiService _ccApiService = CreateMockCcApiService();
+            List<string> _productNames = new List<string>(){"powermax105", "maxpro200"};
             string outputDbFilename = "./cutcharts.db";
 
             Action A = () =>
@@ -84,6 +126,8 @@ namespace Hypertherm.CcCli.Tests
         [Test]
         public void CanGetXmlTransformedCutChartsAsXlsx()
         {
+            CcApiService _ccApiService = CreateMockCcApiService();
+            List<string> _productNames = new List<string>(){"powermax105", "maxpro200"};
             string outputXlsxFilename = "./customcutcharts.xlsx";
 
             var xmlFilename = "./testXml.xml";
@@ -115,23 +159,17 @@ namespace Hypertherm.CcCli.Tests
                  });
             Assert.AreEqual("/cutchart/base/route?units=english&param2=valid", testUri.PathAndQuery);
         }
-
-        CcApiService _ccApiService;
+        
         private CcApiService CreateMockCcApiService(bool reset = false)
         {
-            if (_ccApiService == null || reset)
-            {
-                HttpClient client = new HttpClient(HttpTestUtilities.CreateMockClientHandler());
+            HttpClient client = new HttpClient(HttpTestUtilities.CreateMockClientHandler());
 
-                var logger = new LoggingService(MessageType.Error);
-                _ccApiService = new CcApiService(
-                  analyticsService:Mock.Of<IAnalyticsService>(),
-                  logger:logger,
-                  client:client
-                );
-            }
-
-            return _ccApiService;
+            var logger = new LoggingService(MessageType.Error);
+            return new CcApiService(
+              analyticsService:Mock.Of<IAnalyticsService>(),
+              logger:logger,
+              client:client
+            );
         }
 
         string _testXmlTransform = @"<?xml version='1.0' encoding='utf-8'?>

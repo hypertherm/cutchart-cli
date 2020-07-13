@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -105,9 +105,17 @@ namespace Hypertherm.CcCli
         {
             SetAcceptHeaderJsonContent();
             var url = CcApiUtilities.BuildUrl();
-            var response = await _httpClient.GetAsync(url);
-
-            return response.StatusCode;
+            try
+            {
+                var response = await _httpClient.GetAsync(url);
+                return response.StatusCode;
+            }
+            catch (Exception e)
+            {
+                _logger.Log($"Error: {e}", MessageType.DebugInfo);
+                _logger.Log($"Failed to connect to API service to access Products.", MessageType.Error);
+                return HttpStatusCode.NotFound;
+            }
         }
 
         public async Task<List<JObject>> GetProducts()

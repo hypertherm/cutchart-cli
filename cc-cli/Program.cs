@@ -13,9 +13,6 @@ using Hanssens.Net;
 using System.Text;
 using System.Threading;
 using Microsoft.Extensions.DependencyInjection;
-using System.Net;
-using Polly;
-using Polly.Extensions.Http;
 using System.Net.Http;
 
 namespace Hypertherm.CcCli
@@ -34,69 +31,12 @@ namespace Hypertherm.CcCli
         private const string CHECKFORUPDATES = "check-for-updates";
         private static bool _checkForUpdates = true;
 
-        static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy()
-        {
-            return HttpPolicyExtensions
-                .HandleTransientHttpError()
-                .OrResult(msg => msg.StatusCode == System.Net.HttpStatusCode.NotFound)
-                .WaitAndRetryAsync(6, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
-        }
-
         static void Main(string[] args)
         {
             ArgumentHandler argHandler = new ArgumentHandler(args);
-
-            CookieContainer cookieContainer = new CookieContainer();
-            HttpClientHandler _handler = new HttpClientHandler();
-
-            //setup our DI
-            var serviceCollection = new ServiceCollection()
-                .AddSingleton<IConfiguration>(s =>
-                    {
-                        return new ConfigurationBuilder()
-                            .AddJsonFile("appsettings.json", true, true)
-                            .AddJsonFile("authconfig.json", true, true)
-                            .Build();
-                    }
-                )
-                .AddSingleton<ILoggingService, LoggingService>(s => 
-                    {
-                        MessageType loggerLevel = argHandler.ArgData.Debug ? MessageType.DebugInfo : MessageType.Error;
-                        return new LoggingService(loggerLevel);
-                    }
-                )
-                .AddSingleton<IAnalyticsService, ApplicationInsightsAnalytics>();
-
-                serviceCollection.AddHttpClient<IUpdateService, UpdateWithGitHubAPI>(client =>
-                    {
-                        client.BaseAddress = new Uri("https://api.github.com/repos/hypertherm/cutchart-cli/releases");
-                    }
-                );
-
-                serviceCollection
-                    .AddHttpClient<IApiService, CcApiService>()
-                    .ConfigureHttpMessageHandlerBuilder(builder =>
-                        {
-                            if (builder.PrimaryHandler is HttpClientHandler handler)
-                            {
-                                _handler = handler;
-                                handler.CookieContainer = cookieContainer;
-                                handler.UseCookies = true;
-                            }
-                        }
-                    );
-                
             
-            ServiceProvider provider = serviceCollection.BuildServiceProvider();
-
-            
-            cookieContainer.Add(
-                CcApiUtilities.BuildUrl(),
-                new Cookie(
-                    "CorrellationId",
-                    provider.GetRequiredService<IAnalyticsService>().SessionId
-                )
-            );
+            ServiceProvider provider = ApplicationServiceProvider
+                .CreateServiceProvider(argHandler.ArgData.Debug);
 
             _logger = provider.GetRequiredService<ILoggingService>();
             _analyzer = provider.GetRequiredService<IAnalyticsService>();
@@ -281,7 +221,7 @@ namespace Hypertherm.CcCli
                 }
 
                 var _authenticator = new OidcAuthService(
-                    _handler,
+                    new HttpClientHandler(), // does not support retry policy at present
                     provider.GetRequiredService<IConfiguration>(),
                     provider.GetRequiredService<IAnalyticsService>(),
                     provider.GetRequiredService<ILoggingService>()
