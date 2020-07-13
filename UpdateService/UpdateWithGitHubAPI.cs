@@ -56,7 +56,10 @@ namespace Hypertherm.Update
                 SetAcceptHeaderJsonContent();
                 SetUserAgentHeader();
 
-                var response = await _httpClient.GetAsync("");
+                try
+                {
+                    var response = await _httpClient.GetAsync("");
+                    response.EnsureSuccessStatusCode();
                     if (response.Content?.Headers?.ContentType?.MediaType == MediaTypeNames.Application.Json)
                     {
                         string responseBody = await response.Content?.ReadAsStringAsync();
@@ -64,8 +67,14 @@ namespace Hypertherm.Update
 
                         foreach(var release in releaseArray)
                         {
-                        releases.Add(release["tag_name"].Value<string>());
+                            releases.Add(release["tag_name"].Value<string>());
+                        }
                     }
+                }
+                catch (Exception e)
+                {
+                    _logger.Log($"Error: {e}", MessageType.DebugInfo);
+                    _logger.Log($"Failed to connect to Github API.", MessageType.Error);
                 }
             }
             else

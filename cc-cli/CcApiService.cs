@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -42,8 +42,11 @@ namespace Hypertherm.CcCli
 
         private bool _isError = false;
         public bool IsError => _isError;
-        public CcApiService(IAnalyticsService analyticsService,
-                    ILoggingService logger, HttpClient client)
+        public CcApiService(
+            IAnalyticsService analyticsService,
+            ILoggingService logger,
+            HttpClient client
+        )
         {
             _logger = logger;
             _analyticsService = analyticsService;
@@ -55,7 +58,7 @@ namespace Hypertherm.CcCli
             try
             {
                 _httpClient.DefaultRequestHeaders.Authorization =
-                        new AuthenticationHeaderValue("Bearer", authService.Login().GetAwaiter().GetResult());
+                    new AuthenticationHeaderValue("Bearer", authService.Login().GetAwaiter().GetResult());
             }
             catch(Exception e)
             {
@@ -127,22 +130,27 @@ namespace Hypertherm.CcCli
             {
                 SetAcceptHeaderJsonContent();
                 var url = CcApiUtilities.BuildUrl();
-                HttpResponseMessage response = await _httpClient.GetAsync(url);
-                string responseBody = await response.Content?.ReadAsStringAsync();
-                
-                _logger.Log($"ProductResponseContent: {responseBody}", MessageType.DebugInfo);
+                try
+                {
+                    HttpResponseMessage response = await _httpClient.GetAsync(url);
+                    
+                    response.EnsureSuccessStatusCode();
+                    string responseBody = await response.Content?.ReadAsStringAsync();
+                    _logger.Log($"ProductResponseContent: {responseBody}", MessageType.DebugInfo);
                     if (response.Content?.Headers?.ContentType?.MediaType == MediaTypeNames.Application.Json)
                     {
-                
                         products = JObject.Parse(responseBody)
                             ["products"]
                             .Values<JObject>()
                             .ToList();
                     }
-
-
                 }
-
+                catch (Exception e)
+                {
+                    _logger.Log($"Error: {e}", MessageType.DebugInfo);
+                    _logger.Log($"Failed to connect to API service to access Products.", MessageType.Error);
+                }
+            }
             else
             {
                 _logger.Log("Could not access product information. No network connection detected.", MessageType.Error);
@@ -192,12 +200,22 @@ namespace Hypertherm.CcCli
                     var url = CcApiUtilities.BuildUrl(
                         new[] { product },
                         new Dictionary<string, string>() { { "units", units } });
-                    var request = new HttpRequestMessage(HttpMethod.Get, url);
-
-                    using (Stream contentStream = await (await _httpClient.SendAsync(request)).Content.ReadAsStreamAsync(),
-                    stream = new FileStream(ccFilename, FileMode.Create, FileAccess.Write, FileShare.None))
+                    try{
+                        var request = new HttpRequestMessage(HttpMethod.Get, url);
+                        HttpResponseMessage response = await _httpClient.SendAsync(request);
+                        response.EnsureSuccessStatusCode();
+                        using (
+                            Stream contentStream = await response.Content.ReadAsStreamAsync(),
+                            stream = new FileStream(ccFilename, FileMode.Create, FileAccess.Write, FileShare.None)
+                        )
+                        {
+                            await contentStream.CopyToAsync(stream);
+                        }
+                    }
+                    catch (Exception e)
                     {
-                        await contentStream.CopyToAsync(stream);
+                        _logger.Log($"Error: {e}", MessageType.DebugInfo);
+                        _logger.Log($"Failed to connect to API service to access base cut chart data.", MessageType.Error);
                     }
                 }
             }
@@ -222,7 +240,7 @@ namespace Hypertherm.CcCli
                     HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, url);
                     request.Content = new StringContent(File.ReadAllText(xmlFilename),
                                     Encoding.UTF8,
-                                    "application/xml");
+                                    MediaTypeNames.Application.Xml);
 
                     string responseBody = "";
                     var response = await _httpClient.SendAsync(request);
