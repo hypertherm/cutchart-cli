@@ -14,6 +14,7 @@ using Hypertherm.Analytics;
 using Hypertherm.OidcAuth;
 using static Hypertherm.Logging.LoggingService;
 using System.Net.Mime;
+using Newtonsoft.Json;
 
 namespace Hypertherm.CcCli
 {
@@ -232,21 +233,35 @@ namespace Hypertherm.CcCli
         {
             if(NetworkUtilities.NetworkConnectivity.IsNetworkAvailable())
             {
+                
+                Console.WriteLine($"NETWORK CONNECTED!");
                 if (ccFilename != "" && (type.ToUpper() == "XLSX" || type.ToUpper() == "DB"))
                 {
                     SetAcceptHeaderJsonContent();
 
                     var url = CcApiUtilities.BuildUrl(new[] { productName, "customs" });
+                    Console.WriteLine($"URL to create: {url}");
                     HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, url);
-                    request.Content = new StringContent(File.ReadAllText(xmlFilename),
-                                    Encoding.UTF8,
-                                    MediaTypeNames.Application.Xml);
+                    string transformText = File.ReadAllText(xmlFilename);
+                    request.Content = new StringContent(
+                        transformText,
+                        Encoding.UTF8,
+                        MediaTypeNames.Application.Xml
+                    );
 
-                    string responseBody = "";
-                    var response = await _httpClient.SendAsync(request);
-                    if (response.IsSuccessStatusCode)
+                    HttpResponseMessage response;
+                    string responseBody = string.Empty;
+                    try
                     {
-                        responseBody = await response.Content.ReadAsStringAsync();
+                        var createResponse = await _httpClient.SendAsync(request);
+                        
+                        responseBody = await createResponse.Content.ReadAsStringAsync();
+                        //response = createResponse;
+                        createResponse.EnsureSuccessStatusCode();
+                        Console.WriteLine($"response to create:\n{responseBody}");
+                        JObject createResponseJson = JObject.Parse(responseBody);
+
+                        Console.WriteLine($"json parse:\n{createResponseJson.ToString(Formatting.Indented)}");
 
                         if (type.ToUpper() == "XLSX")
                         {
@@ -256,19 +271,40 @@ namespace Hypertherm.CcCli
                         {
                             SetAcceptHeaderDbContent();
                         }
-                        url = CcApiUtilities.BuildUrl(new[] { productName, "customs", JObject.Parse(responseBody)["id"].Value<string>() });
-                        request = new HttpRequestMessage(HttpMethod.Get, url);
+                        url = CcApiUtilities.BuildUrl(
+                            new[] { 
+                                productName,
+                                "customs",
+                                createResponseJson["id"].Value<string>()
+                            }
+                        );
+                        Console.WriteLine($"making get custom request to : {url}");
+                        var getCustomRequest = new HttpRequestMessage(HttpMethod.Get, url);
+                        response = await _httpClient.SendAsync(getCustomRequest);
+                        response.EnsureSuccessStatusCode();
 
-                        using (Stream contentStream = await (await _httpClient.SendAsync(request)).Content.ReadAsStreamAsync(),
-                        stream = new FileStream(ccFilename, FileMode.Create, FileAccess.Write, FileShare.None))
+                        using (
+                            Stream contentStream = await response.Content.ReadAsStreamAsync(),
+                            stream = new FileStream(
+                                ccFilename,
+                                FileMode.Create,
+                                FileAccess.Write,
+                                FileShare.None
+                            )
+                        )
                         {
                             await contentStream.CopyToAsync(stream);
                         }
                     }
-                    else
+                    catch (HttpRequestException e)
                     {
-                        responseBody = await response.Content.ReadAsStringAsync();
+                        Console.WriteLine($"there is an error here: \n{e}");
                         _logger.Log(JObject.Parse(responseBody)["error"].Value<string>(), MessageType.Error);
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine($"there is an error here: \n{e}");
+                        //_logger.Log(JObject.Parse(responseBody)["error"].Value<string>(), MessageType.Error);
                     }
                 }
             }
@@ -286,6 +322,10 @@ namespace Hypertherm.CcCli
             UriBuilder uriBuilder = new UriBuilder();
             uriBuilder.Scheme = "Https";
             uriBuilder.Host = "api.hypertherm.com";
+            
+            // uriBuilder.Scheme = "https";
+            // uriBuilder.Host = "localhost";
+            // uriBuilder.Port = 7071;
             
             if (path != null)
             {
