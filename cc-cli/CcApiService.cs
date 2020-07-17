@@ -331,7 +331,7 @@ namespace Hypertherm.CcCli
             uriBuilder.Scheme = "Https";
             uriBuilder.Host = "api.hypertherm.com";
             
-            // uriBuilder.Scheme = "https";
+            // uriBuilder.Scheme = "http";
             // uriBuilder.Host = "localhost";
             // uriBuilder.Port = 7071;
             
