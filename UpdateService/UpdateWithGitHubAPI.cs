@@ -58,7 +58,7 @@ namespace Hypertherm.Update
 
                 try
                 {
-                    var response = await _httpClient.GetAsync("");
+                    var response = await _httpClient.GetAsync("releases");
                     response.EnsureSuccessStatusCode();
                     if (response.Content?.Headers?.ContentType?.MediaType == MediaTypeNames.Application.Json)
                     {
@@ -100,7 +100,7 @@ namespace Hypertherm.Update
                     SetAcceptHeaderJsonContent();
                     SetUserAgentHeader();
 
-                    var response = await _httpClient.GetAsync($"/tags/{version}");
+                    var response = await _httpClient.GetAsync($"tags/{version}");
                     string responseBody = await response.Content?.ReadAsStringAsync();
 
                     if (response.IsSuccessStatusCode
@@ -166,7 +166,7 @@ namespace Hypertherm.Update
                 SetUserAgentHeader();
 
                 // Put a try catch around this with logger service used to notify on fail
-                var response = await _httpClient.GetAsync("/latest");
+                var response = await _httpClient.GetAsync("releases/latest");
                 string responseBody = await response.Content?.ReadAsStringAsync();
 
                 if (response.IsSuccessStatusCode

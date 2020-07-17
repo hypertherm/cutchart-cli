@@ -91,7 +91,7 @@ namespace Hypertherm.CcCli
                 .AddHttpClient<IUpdateService, UpdateWithGitHubAPI>(client =>
                     {
                         client.BaseAddress = new Uri(
-                            "https://api.github.com/repos/hypertherm/cutchart-cli/releases"
+                            "https://api.github.com/repos/hypertherm/cutchart-cli/"
                         );
                     }
                 )
