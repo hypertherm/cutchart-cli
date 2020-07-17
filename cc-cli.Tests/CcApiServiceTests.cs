@@ -14,6 +14,7 @@ using Hypertherm.Analytics;
 using Microsoft.Extensions.DependencyInjection;
 using System.Threading.Tasks;
 using System.Threading;
+using System.Net.Sockets;
 
 namespace Hypertherm.CcCli.Tests
 {
@@ -36,19 +37,15 @@ namespace Hypertherm.CcCli.Tests
                     ItExpr.IsAny<HttpRequestMessage>(),
                     ItExpr.IsAny<CancellationToken>()
                 )
+                .ThrowsAsync(new SocketException())
                 .ReturnsAsync(new HttpResponseMessage()
                   {
-                    StatusCode = HttpStatusCode.BadRequest,
+                    StatusCode = HttpStatusCode.ServiceUnavailable,
                   }
                 )
                 .ReturnsAsync(new HttpResponseMessage()
                   {
-                    StatusCode = HttpStatusCode.Unauthorized,
-                  }
-                )
-                .ReturnsAsync(new HttpResponseMessage()
-                  {
-                    StatusCode = HttpStatusCode.Forbidden,
+                    StatusCode = HttpStatusCode.Ambiguous,
                   }
                 )
                 .ReturnsAsync(new HttpResponseMessage()

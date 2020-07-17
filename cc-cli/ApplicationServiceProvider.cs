@@ -9,7 +9,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Polly;
 using Polly.Extensions.Http;
-using Polly.Registry;
 using static Hypertherm.Logging.LoggingService;
 
 namespace Hypertherm.CcCli
@@ -20,11 +19,6 @@ namespace Hypertherm.CcCli
         {
             IAsyncPolicy<HttpResponseMessage> policy = Policy
                 .Handle<SocketException>()
-                .OrResult<HttpResponseMessage>(msg => 
-                    msg.StatusCode != HttpStatusCode.BadRequest // 400
-                    || msg.StatusCode != HttpStatusCode.Unauthorized // 401
-                    || msg.StatusCode != HttpStatusCode.Forbidden // 403
-                ) // Don't retry if it is a bad request or you don't have authentication
                 .OrTransientHttpError()
                 .WaitAndRetryAsync(
                     3,
@@ -40,10 +34,17 @@ namespace Hypertherm.CcCli
             Policy
                 .Handle<SocketException>()
                 .OrResult<HttpResponseMessage>(msg => 
-                    msg.StatusCode != HttpStatusCode.BadRequest // 400
-                    || msg.StatusCode != HttpStatusCode.Unauthorized // 401
-                    || msg.StatusCode != HttpStatusCode.Forbidden // 403
-                ) // Don't retry if it is a bad request or you don't have authentication
+                    !( // don't retry if any of the following are
+                        msg.StatusCode == HttpStatusCode.OK // 200 if successfully got response
+                        || msg.StatusCode == HttpStatusCode.Created // 201 if  the object was created
+                        || msg.StatusCode == HttpStatusCode.BadRequest // 400 if the request was bad, retrying won't make a difference
+                        || msg.StatusCode == HttpStatusCode.Unauthorized // 401, if you have not appended authorization token as it won't make a difference
+                        || msg.StatusCode == HttpStatusCode.Forbidden // 403, if you do not have authorization to the resource as it won't make a difference
+                        || msg.StatusCode == HttpStatusCode.UnprocessableEntity // 422 the cc-cli has a bug and is trying to use the wrong template
+                        || msg.StatusCode == HttpStatusCode.NotFound // 404, the api has changed or the CLI app is broken and needs to be updated as it won't make a difference
+                        || msg.StatusCode == HttpStatusCode.UnsupportedMediaType // 415, The endpoint has changed what it accepts and the ccapi is no longer working 
+                    )
+                )
                 .OrTransientHttpError()
                 .WaitAndRetryAsync(
                     3,
