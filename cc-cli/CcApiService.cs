@@ -115,10 +115,15 @@ namespace Hypertherm.CcCli
                 var response = await _httpClient.GetAsync(url);
                 return response.StatusCode;
             }
-            catch (Exception e)
+            catch (HttpRequestException e)
             {
                 _logger.Log($"Error: {e}", MessageType.DebugInfo);
                 _logger.Log($"Failed to connect to API service to access Products.", MessageType.Error);
+                return HttpStatusCode.NotFound;
+            }
+            catch (Exception e)
+            {
+                _logger.Log($"Unhandled exception: {e}", MessageType.Error);
                 return HttpStatusCode.NotFound;
             }
         }
@@ -146,10 +151,14 @@ namespace Hypertherm.CcCli
                             .ToList();
                     }
                 }
-                catch (Exception e)
+                catch (HttpRequestException e)
                 {
                     _logger.Log($"Error: {e}", MessageType.DebugInfo);
                     _logger.Log($"Failed to connect to API service to access Products.", MessageType.Error);
+                }
+                catch (Exception e)
+                {
+                    _logger.Log($"Unhandled exception: {e}", MessageType.Error);
                 }
             }
             else
@@ -213,10 +222,14 @@ namespace Hypertherm.CcCli
                             await contentStream.CopyToAsync(stream);
                         }
                     }
-                    catch (Exception e)
+                    catch (HttpRequestException e)
                     {
                         _logger.Log($"Error: {e}", MessageType.DebugInfo);
                         _logger.Log($"Failed to connect to API service to access base cut chart data.", MessageType.Error);
+                    }
+                    catch (Exception e)
+                    {
+                        _logger.Log($"Unhandled exception: {e}", MessageType.Error);
                     }
                 }
             }
