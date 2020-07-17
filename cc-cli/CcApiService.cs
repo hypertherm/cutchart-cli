@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -210,7 +210,8 @@ namespace Hypertherm.CcCli
                     var url = CcApiUtilities.BuildUrl(
                         new[] { product },
                         new Dictionary<string, string>() { { "units", units } });
-                    try{
+                    try
+                    {
                         var request = new HttpRequestMessage(HttpMethod.Get, url);
                         HttpResponseMessage response = await _httpClient.SendAsync(request);
                         response.EnsureSuccessStatusCode();
