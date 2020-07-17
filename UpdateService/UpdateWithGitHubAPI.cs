@@ -99,14 +99,30 @@ namespace Hypertherm.Update
                 {
                     SetAcceptHeaderJsonContent();
                     SetUserAgentHeader();
-
-                    var response = await _httpClient.GetAsync($"tags/{version}");
-                    string responseBody = await response.Content?.ReadAsStringAsync();
-
-                    if (response.IsSuccessStatusCode
-                    && response.Content?.Headers?.ContentType?.MediaType == "application/json")
+                    try
                     {
-                        downloadUrl = JObject.Parse(responseBody)["assets"].Values<JObject>().ToList()[0]["browser_download_url"].Value<string>();
+                        var response = await _httpClient.GetAsync($"tags/{version}");
+                        response.EnsureSuccessStatusCode();
+                        
+                        if (response.Content?.Headers?.ContentType?.MediaType == MediaTypeNames.Application.Json)
+                        {
+                            string responseBody = await response.Content?.ReadAsStringAsync();
+                            JObject jsonBody = JObject.Parse(responseBody);
+                            downloadUrl = jsonBody
+                                .Values<JObject>()
+                                .ToList()
+                                .FirstOrDefault()
+                                ?["browser_download_url"]
+                                .Value<string>();
+                        }
+                    }
+                    catch (HttpRequestException e)
+                    {
+                        _logger.Log($"Update failed. No network connection failed, unable to access {_httpClient.BaseAddress}.", MessageType.Error);
+                    }
+                    catch (Exception e)
+                    {
+                        _logger.Log($"An unhandled exception has occurred: {e.Message}", MessageType.Error);
                     }
                 }
 
@@ -115,13 +131,24 @@ namespace Hypertherm.Update
                 Directory.CreateDirectory(tmpDir);
                 var ccCliFilename = "cc-cli.exe";
 
-                var request = new HttpRequestMessage(HttpMethod.Get, downloadUrl);
-
-                using (Stream contentStream = await (await _httpClient.SendAsync(request)).Content.ReadAsStreamAsync(),
-                stream = new FileStream(tmpDir + ccCliFilename, FileMode.Create, FileAccess.Write, FileShare.None))
+                try
                 {
-                    await contentStream.CopyToAsync(stream);
+                    var request = new HttpRequestMessage(HttpMethod.Get, downloadUrl);
+                    HttpResponseMessage response = await _httpClient.SendAsync(request);
+                    response.EnsureSuccessStatusCode();
+
+                    using (
+                        Stream contentStream = await response.Content.ReadAsStreamAsync(),
+                        stream = new FileStream(tmpDir + ccCliFilename, FileMode.Create, FileAccess.Write, FileShare.None)
+                    )
+                    {
+                        await contentStream.CopyToAsync(stream);
+                    }
                 }
+                catch (HttpRequestException e)
+                {}
+                catch (Exception e)
+                {}
 
                 if(File.Exists(tmpDir + ccCliFilename))
                 {
@@ -165,15 +192,36 @@ namespace Hypertherm.Update
                 SetAcceptHeaderJsonContent();
                 SetUserAgentHeader();
 
-                // Put a try catch around this with logger service used to notify on fail
-                var response = await _httpClient.GetAsync("releases/latest");
-                string responseBody = await response.Content?.ReadAsStringAsync();
-
-                if (response.IsSuccessStatusCode
-                && response.Content?.Headers?.ContentType?.MediaType == "application/json")
+                try
                 {
-                    _latestReleasedVersion =  Version.Parse(JObject.Parse(responseBody)["tag_name"].Value<string>().Substring(1));
-                    _latestReleaseUrl = JObject.Parse(responseBody)["assets"].Values<JObject>().ToList()[0]["browser_download_url"].Value<string>();
+                    var response = await _httpClient.GetAsync("releases/latest");
+                    response.EnsureSuccessStatusCode();
+                    
+                    if (response.Content?.Headers?.ContentType?.MediaType == MediaTypeNames.Application.Json)
+                    {
+                        string responseBody = await response.Content?.ReadAsStringAsync();
+                        JObject jsonBody = JObject.Parse(responseBody);
+                        
+                        _latestReleasedVersion =  Version.Parse(
+                            jsonBody["tag_name"]
+                                .Value<string>()
+                                .Substring(1)
+                        );
+                        _latestReleaseUrl = jsonBody["assets"]
+                            .Values<JObject>()
+                            .ToList()
+                            .FirstOrDefault()
+                            ?["browser_download_url"]
+                            .Value<string>();
+                    }
+                }
+                catch (HttpRequestException e)
+                {
+                    _logger.Log($"Update failed. No network connection failed, unable to access the latest released version on GitHub.", MessageType.Error);
+                }
+                catch (Exception e)
+                {
+                    _logger.Log($"An unhandled exception has occurred: {e.Message}", MessageType.Error);
                 }
             }
         }
