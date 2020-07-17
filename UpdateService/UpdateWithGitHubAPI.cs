@@ -101,7 +101,7 @@ namespace Hypertherm.Update
                     SetUserAgentHeader();
                     try
                     {
-                        var response = await _httpClient.GetAsync($"tags/{version}");
+                        var response = await _httpClient.GetAsync($"releases/tags/{version}");
                         response.EnsureSuccessStatusCode();
                         
                         if (response.Content?.Headers?.ContentType?.MediaType == MediaTypeNames.Application.Json)
