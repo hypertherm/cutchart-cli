@@ -13,60 +13,53 @@ using Hypertherm.Logging;
 using Hypertherm.Analytics;
 using Hypertherm.OidcAuth;
 using static Hypertherm.Logging.LoggingService;
+using System.Net.Mime;
+using Newtonsoft.Json;
 
 namespace Hypertherm.CcCli
 {
-    public class CcApiService
+    public interface IApiService
+    {
+        bool IsError { get; }
+        Task<HttpStatusCode> IsCcApiAvailable();
+        Task<List<JObject>> GetProducts();
+        Task<List<string>> GetProductNames();
+        Task GetAllCutChartData(string ccFilename, string type = "XLSX");
+        Task GetBaseCutChartData(
+                            string ccFilename, string product,
+                            string units = "english", string type = "XLSX");
+        Task GetXmlTransformedCutChartData(
+            string ccFilename, string xmlFilename,
+            string productName,
+            string type = "XLSX");
+
+        void SetupAuth(IAuthenticationService authService);
+    }
+    public class CcApiService: IApiService
     {
         private ILoggingService _logger;
-        private static HttpClient _httpClient = new HttpClient();
-        private HttpClientHandler _clientHandler;
+        private HttpClient _httpClient;
         private IAnalyticsService _analyticsService;
-        private IAuthenticationService _authService;
 
         private bool _isError = false;
         public bool IsError => _isError;
-        public CcApiService(IAnalyticsService analyticsService = null, IAuthenticationService authService = null,
-                    ILoggingService logger = null, HttpClientHandler clientHandler = null)
+        public CcApiService(
+            IAnalyticsService analyticsService,
+            ILoggingService logger,
+            HttpClient client
+        )
         {
             _logger = logger;
-            
-            if(clientHandler == null)
-            {
-                // Production path - create a real clientHandler
-                _clientHandler = new HttpClientHandler();
-            }
-            else
-            {
-                // Test path - use mocked clientHandler
-                _clientHandler = clientHandler;
-                _httpClient = new HttpClient(_clientHandler);
-            }
-
-            if(analyticsService != null
-                || authService != null)
-            {
-                // Production path - requires real analytics and authenitcation services
-                _analyticsService = analyticsService;
-                _authService = authService;
-
-                Setup();
-            }
+            _analyticsService = analyticsService;
+            _httpClient = client;
         }
 
-        public void Setup()
+        public void SetupAuth(IAuthenticationService authService)
         {
-            var cookieContainer = new CookieContainer();
-            _clientHandler.CookieContainer = cookieContainer;
-
-            _httpClient = new HttpClient(_clientHandler);
-            var url = CcApiUtilities.BuildUrl();
-            cookieContainer.Add(url, new Cookie("CorrellationId", _analyticsService.SessionId));
-            
             try
             {
                 _httpClient.DefaultRequestHeaders.Authorization =
-                        new AuthenticationHeaderValue("Bearer", _authService.Login().GetAwaiter().GetResult());
+                    new AuthenticationHeaderValue("Bearer", authService.Login().GetAwaiter().GetResult());
             }
             catch(Exception e)
             {
@@ -88,7 +81,7 @@ namespace Hypertherm.CcCli
 
             _httpClient.DefaultRequestHeaders
                 .Accept
-                .Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+                .Add(new MediaTypeWithQualityHeaderValue(MediaTypeNames.Application.Json));
         }
 
         private void SetAcceptHeaderXlsxContent()
@@ -99,7 +92,7 @@ namespace Hypertherm.CcCli
 
             _httpClient.DefaultRequestHeaders
                 .Accept
-                .Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+                .Add(new MediaTypeWithQualityHeaderValue("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
         }
 
         private void SetAcceptHeaderDbContent()
@@ -110,32 +103,67 @@ namespace Hypertherm.CcCli
 
             _httpClient.DefaultRequestHeaders
                 .Accept
-                .Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/octet-stream"));
+                .Add(new MediaTypeWithQualityHeaderValue(MediaTypeNames.Application.Octet));
         }
 
         public async Task<HttpStatusCode> IsCcApiAvailable()
         {
             SetAcceptHeaderJsonContent();
             var url = CcApiUtilities.BuildUrl();
-            var response = await _httpClient.GetAsync(url);
-
-            return response.StatusCode;
+            try
+            {
+                var response = await _httpClient.GetAsync(url);
+                return response.StatusCode;
+            }
+            catch (HttpRequestException e)
+            {
+                _logger.Log($"Error: {e}", MessageType.DebugInfo);
+                _logger.Log($"Failed to connect to API service to access Products.", MessageType.Error);
+                return HttpStatusCode.NotFound;
+            }
+            catch (Exception e)
+            {
+                _logger.Log($"Unhandled exception: {e}", MessageType.Error);
+                return HttpStatusCode.NotFound;
+            }
         }
 
         public async Task<List<JObject>> GetProducts()
         {
-            SetAcceptHeaderJsonContent();
-            var url = CcApiUtilities.BuildUrl();
-            HttpResponseMessage response = await _httpClient.GetAsync(url);
-            string responseBody = await response.Content?.ReadAsStringAsync();
-            
-            _logger.Log($"ProductResponseContent: {responseBody}", MessageType.DebugInfo);
+            var products = new List<JObject>(){};
 
-            var products = new List<JObject>();
-            if (response.IsSuccessStatusCode
-            && response.Content?.Headers?.ContentType?.MediaType == "application/json")
+            if(NetworkUtilities.NetworkConnectivity.IsNetworkAvailable())
             {
-                products = JObject.Parse(responseBody)["products"].Values<JObject>().ToList();
+                SetAcceptHeaderJsonContent();
+                var url = CcApiUtilities.BuildUrl();
+                try
+                {
+                    HttpResponseMessage response = await _httpClient.GetAsync(url);
+                    
+                    response.EnsureSuccessStatusCode();
+                    string responseBody = await response.Content?.ReadAsStringAsync();
+                    _logger.Log($"ProductResponseContent: {responseBody}", MessageType.DebugInfo);
+                    if (response.Content?.Headers?.ContentType?.MediaType == MediaTypeNames.Application.Json)
+                    {
+                        products = JObject.Parse(responseBody)
+                            ["products"]
+                            .Values<JObject>()
+                            .ToList();
+                    }
+                }
+                catch (HttpRequestException e)
+                {
+                    _logger.Log($"Error: {e}", MessageType.DebugInfo);
+                    _logger.Log($"Failed to connect to API service to access Products.", MessageType.Error);
+                }
+                catch (Exception e)
+                {
+                    _logger.Log($"Unhandled exception: {e}", MessageType.Error);
+                }
+            }
+            else
+            {
+                _logger.Log("Could not access product information. No network connection detected.", MessageType.Error);
             }
 
             return products;
@@ -166,52 +194,10 @@ namespace Hypertherm.CcCli
                             string ccFilename, string product,
                             string units = "english", string type = "XLSX")
         {
-            if (ccFilename != "" && (type.ToUpper() == "XLSX" || type.ToUpper() == "DB"))
+            if(NetworkUtilities.NetworkConnectivity.IsNetworkAvailable())
             {
-                if (type.ToUpper() == "XLSX")
+                if (ccFilename != "" && (type.ToUpper() == "XLSX" || type.ToUpper() == "DB"))
                 {
-                    SetAcceptHeaderXlsxContent();
-                }
-                else if (type.ToUpper() == "DB")
-                {
-                    SetAcceptHeaderDbContent();
-                }
-
-                var url = CcApiUtilities.BuildUrl(
-                    new[] { product },
-                    new Dictionary<string, string>() { { "units", units } });
-                var request = new HttpRequestMessage(HttpMethod.Get, url);
-
-                using (Stream contentStream = await (await _httpClient.SendAsync(request)).Content.ReadAsStreamAsync(),
-                stream = new FileStream(ccFilename, FileMode.Create, FileAccess.Write, FileShare.None))
-                {
-                    await contentStream.CopyToAsync(stream);
-                }
-            }
-        }
-
-        public async Task<string> GetXmlTransformedCutChartData(
-                            string ccFilename, string xmlFilename,
-                            string productName,
-                            string type = "XLSX")
-        {
-            string responseBody = "";
-            string error = "";
-
-            if (ccFilename != "" && (type.ToUpper() == "XLSX" || type.ToUpper() == "DB"))
-            {
-                SetAcceptHeaderJsonContent();
-                var url = CcApiUtilities.BuildUrl(new[] { productName, "customs" });
-                HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, url);
-                request.Content = new StringContent(File.ReadAllText(xmlFilename),
-                                Encoding.UTF8,
-                                "application/xml");
-
-                var response = await _httpClient.SendAsync(request);
-                if (response.IsSuccessStatusCode)
-                {
-                    responseBody = await response.Content.ReadAsStringAsync();
-
                     if (type.ToUpper() == "XLSX")
                     {
                         SetAcceptHeaderXlsxContent();
@@ -220,25 +206,122 @@ namespace Hypertherm.CcCli
                     {
                         SetAcceptHeaderDbContent();
                     }
-                    url = CcApiUtilities.BuildUrl(new[] { productName, "customs", JObject.Parse(responseBody)["id"].Value<string>() });
-                    request = new HttpRequestMessage(HttpMethod.Get, url);
 
-                    using (Stream contentStream = await (await _httpClient.SendAsync(request)).Content.ReadAsStreamAsync(),
-                    stream = new FileStream(ccFilename, FileMode.Create, FileAccess.Write, FileShare.None))
+                    var url = CcApiUtilities.BuildUrl(
+                        new[] { product },
+                        new Dictionary<string, string>() { { "units", units } });
+                    try
                     {
-                        await contentStream.CopyToAsync(stream);
+                        var request = new HttpRequestMessage(HttpMethod.Get, url);
+                        HttpResponseMessage response = await _httpClient.SendAsync(request);
+                        response.EnsureSuccessStatusCode();
+                        using (
+                            Stream contentStream = await response.Content.ReadAsStreamAsync(),
+                            stream = new FileStream(ccFilename, FileMode.Create, FileAccess.Write, FileShare.None)
+                        )
+                        {
+                            await contentStream.CopyToAsync(stream);
+                        }
+                    }
+                    catch (HttpRequestException e)
+                    {
+                        _logger.Log($"Error: {e}", MessageType.DebugInfo);
+                        _logger.Log($"Failed to connect to API service to access base cut chart data.", MessageType.Error);
+                    }
+                    catch (Exception e)
+                    {
+                        _logger.Log($"Unhandled exception: {e}", MessageType.Error);
                     }
                 }
-                else
-                {
-                    responseBody = await response.Content.ReadAsStringAsync();
-                    error = JObject.Parse(responseBody)["error"].Value<string>();
-                }
             }
-
-            return error;
+            else
+            {
+                _logger.Log("Could not access cutchart data. No network connection detected.", MessageType.Error);
+            }
         }
 
+        public async Task GetXmlTransformedCutChartData(
+                            string ccFilename, string xmlFilename,
+                            string productName,
+                            string type = "XLSX")
+        {
+            if(NetworkUtilities.NetworkConnectivity.IsNetworkAvailable())
+            {
+                if (ccFilename != "" && (type.ToUpper() == "XLSX" || type.ToUpper() == "DB"))
+                {
+                    SetAcceptHeaderJsonContent();
+
+                    var url = CcApiUtilities.BuildUrl(new[] { productName, "customs" });
+                    HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, url);
+                    string transformText = File.ReadAllText(xmlFilename);
+                    request.Content = new StringContent(
+                        transformText,
+                        Encoding.UTF8,
+                        MediaTypeNames.Application.Xml
+                    );
+
+                    HttpResponseMessage response;
+                    string responseBody = string.Empty;
+                    try
+                    {
+                        var createResponse = await _httpClient.SendAsync(request);
+                        
+                        responseBody = await createResponse.Content.ReadAsStringAsync();
+                        //response = createResponse;
+                        createResponse.EnsureSuccessStatusCode();
+                        JObject createResponseJson = JObject.Parse(responseBody);
+
+                        if (type.ToUpper() == "XLSX")
+                        {
+                            SetAcceptHeaderXlsxContent();
+                        }
+                        else if (type.ToUpper() == "DB")
+                        {
+                            SetAcceptHeaderDbContent();
+                        }
+                        url = CcApiUtilities.BuildUrl(
+                            new[] { 
+                                productName,
+                                "customs",
+                                createResponseJson["id"].Value<string>()
+                            }
+                        );
+
+                        var getCustomRequest = new HttpRequestMessage(HttpMethod.Get, url);
+                        response = await _httpClient.SendAsync(getCustomRequest);
+                        response.EnsureSuccessStatusCode();
+
+                        using (
+                            Stream contentStream = await response.Content.ReadAsStreamAsync(),
+                            stream = new FileStream(
+                                ccFilename,
+                                FileMode.Create,
+                                FileAccess.Write,
+                                FileShare.None
+                            )
+                        )
+                        {
+                            await contentStream.CopyToAsync(stream);
+                        }
+                    }
+                    catch (HttpRequestException e)
+                    {
+                        _logger.Log(JObject.Parse(responseBody)["error"].Value<string>(), MessageType.Error);
+                    }
+                    catch (Exception e)
+                    {
+                        _logger.Log(
+                            $"An unhandled error has occurredd: {e.Message}",
+                            MessageType.Error
+                        );
+                    }
+                }
+            }
+            else
+            {
+                _logger.Log("Could not access custom cutchart data. No network connection detected.", MessageType.Error);
+            }
+        }
     }
 
     public class CcApiUtilities
@@ -248,6 +331,10 @@ namespace Hypertherm.CcCli
             UriBuilder uriBuilder = new UriBuilder();
             uriBuilder.Scheme = "Https";
             uriBuilder.Host = "api.hypertherm.com";
+            
+            // uriBuilder.Scheme = "http";
+            // uriBuilder.Host = "localhost";
+            // uriBuilder.Port = 7071;
             
             if (path != null)
             {

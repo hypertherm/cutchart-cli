@@ -6,6 +6,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
+using System.Net.Mime;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -149,9 +150,12 @@ namespace Hypertherm.OidcAuth
                 }
                 else if (ctx.Request.Method == "POST")
                 {
-                    if (!ctx.Request.ContentType.Equals("application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase))
+                    if (!ctx.Request.ContentType.Equals(
+                        "application/x-www-form-urlencoded",
+                        StringComparison.OrdinalIgnoreCase)
+                    )
                     {
-                        ctx.Response.StatusCode = 415;
+                        ctx.Response.StatusCode = (int)HttpStatusCode.UnsupportedMediaType;
                     }
                     else
                     {
@@ -164,7 +168,7 @@ namespace Hypertherm.OidcAuth
                 }
                 else
                 {
-                    ctx.Response.StatusCode = 405;
+                    ctx.Response.StatusCode = (int)HttpStatusCode.MethodNotAllowed;
                 }
             });
         }
@@ -173,8 +177,8 @@ namespace Hypertherm.OidcAuth
         {
             try
             {
-                ctx.Response.StatusCode = 200;
-                ctx.Response.ContentType = "text/html";
+                ctx.Response.StatusCode = (int)HttpStatusCode.OK;
+                ctx.Response.ContentType = MediaTypeNames.Text.Html;
                 ctx.Response.WriteAsync("<h1>You can now return to the application.</h1>");
                 ctx.Response.Body.Flush();
 
@@ -182,8 +186,8 @@ namespace Hypertherm.OidcAuth
             }
             catch
             {
-                ctx.Response.StatusCode = 400;
-                ctx.Response.ContentType = "text/html";
+                ctx.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+                ctx.Response.ContentType = MediaTypeNames.Text.Html;
                 ctx.Response.WriteAsync("<h1>Invalid request.</h1>");
                 ctx.Response.Body.Flush();
             }

@@ -22,3 +22,6 @@ bld/
 
 # Warp temp files
 cc-cli/dotnetwarp_temp/
+
+*.exe
+*.log

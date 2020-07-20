@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
+using System.Net.Mime;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,8 +27,8 @@ namespace Hypertherm.CcCli.Mocks
             var handler = A.Fake<MockHandler>(opt => opt.CallsBaseMethods());
 
             // Mock base "GET" endpoint that returns json
-            A.CallTo(() => handler.SendAsync(HttpMethod.Get, "application/json", CcApiUtilities.BuildUrl(null, null).PathAndQuery))
-                .Returns(Success(productsJsonResponse, "application/json"));
+            A.CallTo(() => handler.SendAsync(HttpMethod.Get, MediaTypeNames.Application.Json, CcApiUtilities.BuildUrl(null, null).PathAndQuery))
+                .Returns(Success(productsJsonResponse, MediaTypeNames.Application.Json));
 
             // Mock product(powermax105) "GET" endpoint with english unist query parameter that returns xlxs
             A.CallTo(() => handler.SendAsync(HttpMethod.Get, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", CcApiUtilities.BuildUrl(
@@ -36,16 +37,16 @@ namespace Hypertherm.CcCli.Mocks
                 .ReturnsLazily(() => Success("", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
 
             // Mock base "GET" endpoint that returns database
-            A.CallTo(() => handler.SendAsync(HttpMethod.Get, "application/octet-stream", CcApiUtilities.BuildUrl(
+            A.CallTo(() => handler.SendAsync(HttpMethod.Get, MediaTypeNames.Application.Octet, CcApiUtilities.BuildUrl(
                     new[] { "" },
                     new Dictionary<string, string>() { { "units", "" } }).PathAndQuery))
-                .ReturnsLazily(() => Success("", "application/octet-stream"));
+                .ReturnsLazily(() => Success("", MediaTypeNames.Application.Octet));
 
             // Mock customs "POST" endpoint with xml that returns json
-            A.CallTo(() => handler.SendAsync(HttpMethod.Post, "application/json", CcApiUtilities.BuildUrl(
+            A.CallTo(() => handler.SendAsync(HttpMethod.Post, MediaTypeNames.Application.Json, CcApiUtilities.BuildUrl(
                     new[] { "maxpro200", "customs" },
                     null).PathAndQuery))
-                .ReturnsLazily(() => Success(customsJsonResponse, "application/json"));
+                .ReturnsLazily(() => Success(customsJsonResponse, MediaTypeNames.Application.Json));
 
             // Mock customs "GET" endpoint with xml that returns json
             A.CallTo(() => handler.SendAsync(HttpMethod.Get, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", CcApiUtilities.BuildUrl(

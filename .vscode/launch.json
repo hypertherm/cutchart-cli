@@ -11,7 +11,7 @@
             "preLaunchTask": "build",
             // If you have changed target frameworks, make sure to update the program path.
             "program": "${workspaceFolder}/cc-cli/bin/Debug/netcoreapp2.1/cc-cli.dll",
-            "args": ["cutchart", "-p", "maxpro200", "-o", "test.xlsx"],
+            "args": ["customs", "-p", "powermax105", "-x", "transform.xml", "-o", "pmxtest.xlsx"],
             "cwd": "${workspaceFolder}/cc-cli",
             // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console
             "console": "internalConsole",

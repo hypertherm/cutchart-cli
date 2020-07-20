@@ -4,14 +4,6 @@ using static Hypertherm.Logging.LoggingService;
 
 namespace Hypertherm.Logging
 {
-    public interface ILoggingService
-    {
-        void ClearLog();
-        void DumpLog();
-        bool isError();
-        void Log(string message, MessageType type);
-    }
-
     public class LoggingService : ILoggingService
     {
         private string _filename;
@@ -35,15 +27,30 @@ namespace Hypertherm.Logging
 
         public void Log(string message, MessageType type)
         {
+            ConsoleColor defaultConsoleColor = Console.ForegroundColor;
+            
             if (type == MessageType.Error)
             {
                 _error = true;
+                message = $"  {message}";
+                Console.ForegroundColor = ConsoleColor.Red;
+            }
+            else if (type == MessageType.Warning)
+            {
+                message = $"  {message}";
+                Console.ForegroundColor = ConsoleColor.Yellow;
+            }
+            else if (type == MessageType.DebugInfo)
+            {
+                Console.ForegroundColor = ConsoleColor.DarkCyan;
             }
 
             if (type <= _logggingLevel)
             {
                 Console.WriteLine(message);
             }
+
+            Console.ForegroundColor = defaultConsoleColor;
 
             using (StreamWriter w = File.AppendText(_filename))
             {

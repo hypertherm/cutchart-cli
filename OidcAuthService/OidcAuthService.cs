@@ -16,12 +16,6 @@ using static Hypertherm.Logging.LoggingService;
 
 namespace Hypertherm.OidcAuth
 {
-    public interface IAuthenticationService
-    {
-        Task<string> Login(string user = "default-user");
-        void Logout(string user = "default-user");
-    }
-
     public class OidcAuthService : IAuthenticationService
     {
         private IConfiguration _config;
@@ -36,7 +30,7 @@ namespace Hypertherm.OidcAuth
         private JwtSecurityToken _accessToken;
         private string _refreshToken;
 
-        public OidcAuthService(IConfiguration config, IAnalyticsService analyticsService, ILoggingService logger)
+        public OidcAuthService(HttpClientHandler clientHandler, IConfiguration config, IAnalyticsService analyticsService, ILoggingService logger)
         {
             _config = config;
             _analyticsService = analyticsService;
@@ -56,8 +50,9 @@ namespace Hypertherm.OidcAuth
                 Scope = _scopes,
                 FilterClaims = false,
                 Browser = browser,
-                RefreshTokenInnerHttpHandler = new HttpClientHandler(),
-                Policy = new Policy { RequireAccessTokenHash = false }
+                RefreshTokenInnerHttpHandler = clientHandler,
+                BackchannelHandler = clientHandler,
+                Policy = new Policy { RequireAccessTokenHash = false },
             };
             _oidcClient = new OidcClient(oidcOptions);
 
@@ -74,104 +69,114 @@ namespace Hypertherm.OidcAuth
 
         public async Task<string> Login(string user = "default-user")
         {
-            var storageKey = "cc-cli:" + user;
-            // Check local storage for tokens
-            if (_localStorage.Exists(storageKey))
-            {
-                _logger.Log($"Local Storage exists.", MessageType.DebugInfo);
-                if (_localStorage.Get<Dictionary<string, string>>(storageKey).ContainsKey("IdentityToken"))
-                {
-                    _identityToken = new JwtSecurityToken(_localStorage.Get<Dictionary<string, string>>(storageKey)["IdentityToken"]);
-                     _logger.Log($"Identity Token acquired from local storage.", MessageType.DebugInfo);
-                }
-
-                if (_localStorage.Get<Dictionary<string, string>>(storageKey).ContainsKey("AccessToken"))
-                {
-                    _accessToken = new JwtSecurityToken(_localStorage.Get<Dictionary<string, string>>(storageKey)["AccessToken"]);
-                     _logger.Log($"Access Token acquired from local storage.", MessageType.DebugInfo);
-                }
-
-                if (_localStorage.Get<Dictionary<string, string>>(storageKey).ContainsKey("RefreshToken"))
-                {
-                    _refreshToken = _localStorage.Get<Dictionary<string, string>>(storageKey)["RefreshToken"];
-                     _logger.Log($"Refresh Token acquired from local storage.", MessageType.DebugInfo);
-                }
-            }
-
-            // Get new access token if expired or is going to within 5 mins
-            if (!String.IsNullOrEmpty(_refreshToken) && !ValidAccessToken(_accessToken))
-            {
-                // Try to refresh our token
-                var refreshResult = await RefreshAccessToken(_refreshToken);
-
-                if (!refreshResult.IsError)
-                {
-                    _identityToken = new JwtSecurityToken(refreshResult.IdentityToken);
-                    _accessToken = new JwtSecurityToken(refreshResult.AccessToken);
-                    _logger.Log($"Identity & Access Tokens acquired from Refresh Token.", MessageType.DebugInfo);
-                }
-                else
-                {
-                    _logger.Log($"Refresh Token failed to acquire new tokens.", MessageType.DebugInfo);
-                    throw new Exception(refreshResult.Error);
-                }
-            }
-
-            // Get new access token if refresh fails
-            if (!ValidAccessToken(_accessToken))
-            {
-                // Acquire new token
-                var result = await AcquireNewAccessToken();
-
-                if (!result.IsError)
-                {
-                    _identityToken = new JwtSecurityToken(result.IdentityToken);
-                    _accessToken = new JwtSecurityToken(result.AccessToken);
-                    _refreshToken = result.RefreshToken;
-                    _logger.Log($"New Identity, Access, & Refresh Tokens acquired.", MessageType.DebugInfo);
-                }
-                else
-                {
-                    _logger.Log($"Identity & Access Tokens acquired from Refresh Token.", MessageType.DebugInfo);
-                    throw new Exception(result.Error);
-                }
-            }
-
             dynamic userInfo = new ExpandoObject();
-            if (ValidAccessToken(_accessToken))
+
+            if(NetworkUtilities.NetworkConnectivity.IsNetworkAvailable())
             {
-                _localStorage.Store(storageKey,
-                    new Dictionary<string, string>{
-                        {"IdentityToken", _identityToken.RawData},
-                        {"AccessToken", _accessToken.RawData},
-                        {"RefreshToken", _refreshToken}
-                    });
-                _localStorage.Persist();
-
-                // App Insights stuff
-                userInfo.name = _identityToken?.Claims.Where(y => y.Type == "name").Select(x => x.Value).FirstOrDefault();
-                userInfo.nickname = _identityToken?.Claims.Where(y => y.Type == "nickname").Select(x => x.Value).FirstOrDefault();
-                userInfo.email = _identityToken?.Claims.Where(y => y.Type == "email").Select(x => x.Value).FirstOrDefault();
-                userInfo.issuer = _identityToken?.Claims.Where(y => y.Type == "iss").Select(x => x.Value).FirstOrDefault();
-                userInfo.subject = _identityToken?.Claims.Where(y => y.Type == "sub").Select(x => x.Value).FirstOrDefault();
-                userInfo.accessToken = String.IsNullOrEmpty(_accessToken?.RawData) ? "" : _accessToken.RawData;
-
-                _logger.Log($"User Info:", MessageType.DebugInfo);
-                foreach (var infoItem in userInfo as IDictionary<string, object> ?? new Dictionary<string, object>())
+                var storageKey = "cc-cli:" + user;
+                // Check local storage for tokens
+                if (_localStorage.Exists(storageKey))
                 {
-                    _logger.Log($"  -{infoItem.Key.ToUpper()}: {infoItem.Value}", MessageType.DebugInfo);
+                    _logger.Log($"Local Storage exists.", MessageType.DebugInfo);
+                    if (_localStorage.Get<Dictionary<string, string>>(storageKey).ContainsKey("IdentityToken"))
+                    {
+                        _identityToken = new JwtSecurityToken(_localStorage.Get<Dictionary<string, string>>(storageKey)["IdentityToken"]);
+                        _logger.Log($"Identity Token acquired from local storage.", MessageType.DebugInfo);
+                    }
+
+                    if (_localStorage.Get<Dictionary<string, string>>(storageKey).ContainsKey("AccessToken"))
+                    {
+                        _accessToken = new JwtSecurityToken(_localStorage.Get<Dictionary<string, string>>(storageKey)["AccessToken"]);
+                        _logger.Log($"Access Token acquired from local storage.", MessageType.DebugInfo);
+                    }
+
+                    if (_localStorage.Get<Dictionary<string, string>>(storageKey).ContainsKey("RefreshToken"))
+                    {
+                        _refreshToken = _localStorage.Get<Dictionary<string, string>>(storageKey)["RefreshToken"];
+                        _logger.Log($"Refresh Token acquired from local storage.", MessageType.DebugInfo);
+                    }
                 }
 
-                _analyticsService.SetUser(
-                    userInfo.name,
-                    userInfo.nickname,
-                    userInfo.email,
-                    userInfo.issuer,
-                    userInfo.subject
-                );
+                // Get new access token if expired or is going to within 5 mins
+                if (!String.IsNullOrEmpty(_refreshToken) && !ValidAccessToken(_accessToken))
+                {
+                    // Try to refresh our token
+                    var refreshResult = await RefreshAccessToken(_refreshToken);
+
+                    if (!refreshResult.IsError)
+                    {
+                        _identityToken = new JwtSecurityToken(refreshResult.IdentityToken);
+                        _accessToken = new JwtSecurityToken(refreshResult.AccessToken);
+                        _logger.Log($"Identity & Access Tokens acquired from Refresh Token.", MessageType.DebugInfo);
+                    }
+                    else
+                    {
+                        _logger.Log($"Refresh Token failed to acquire new tokens.", MessageType.DebugInfo);
+                        throw new Exception(refreshResult.Error);
+                    }
+                }
+
+                // Get new access token if refresh fails
+                if (!ValidAccessToken(_accessToken))
+                {
+                    // Acquire new token
+                    var result = await AcquireNewAccessToken();
+
+                    if (!result.IsError)
+                    {
+                        _identityToken = new JwtSecurityToken(result.IdentityToken);
+                        _accessToken = new JwtSecurityToken(result.AccessToken);
+                        _refreshToken = result.RefreshToken;
+                        _logger.Log($"New Identity, Access, & Refresh Tokens acquired.", MessageType.DebugInfo);
+                    }
+                    else
+                    {
+                        _logger.Log($"Identity & Access Tokens acquired from Refresh Token.", MessageType.DebugInfo);
+                        throw new Exception(result.Error);
+                    }
+                }
+
+                if (ValidAccessToken(_accessToken))
+                {
+                    _localStorage.Store(storageKey,
+                        new Dictionary<string, string>{
+                            {"IdentityToken", _identityToken.RawData},
+                            {"AccessToken", _accessToken.RawData},
+                            {"RefreshToken", _refreshToken}
+                        });
+                    _localStorage.Persist();
+
+                    // App Insights stuff
+                    userInfo.name = _identityToken?.Claims.Where(y => y.Type == "name").Select(x => x.Value).FirstOrDefault();
+                    userInfo.nickname = _identityToken?.Claims.Where(y => y.Type == "nickname").Select(x => x.Value).FirstOrDefault();
+                    userInfo.email = _identityToken?.Claims.Where(y => y.Type == "email").Select(x => x.Value).FirstOrDefault();
+                    userInfo.issuer = _identityToken?.Claims.Where(y => y.Type == "iss").Select(x => x.Value).FirstOrDefault();
+                    userInfo.subject = _identityToken?.Claims.Where(y => y.Type == "sub").Select(x => x.Value).FirstOrDefault();
+                    userInfo.accessToken = String.IsNullOrEmpty(_accessToken?.RawData) ? "" : _accessToken.RawData;
+
+                    _logger.Log($"User Info:", MessageType.DebugInfo);
+                    foreach (var infoItem in userInfo as IDictionary<string, object> ?? new Dictionary<string, object>())
+                    {
+                        _logger.Log($"  -{infoItem.Key.ToUpper()}: {infoItem.Value}", MessageType.DebugInfo);
+                    }
+
+                    _analyticsService.SetUser(
+                        userInfo.name,
+                        userInfo.nickname,
+                        userInfo.email,
+                        userInfo.issuer,
+                        userInfo.subject
+                    );
+                }
+                else
+                {
+                    // If there is no valid Access Token, send back an empty string.
+                    userInfo.accessToken = "";
+                }
             }
             else
             {
+                _logger.Log("Login failed. No network connection detected.", MessageType.Error);
                 // If there is no valid Access Token, send back an empty string.
                 userInfo.accessToken = "";
             }

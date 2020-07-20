@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netcoreapp2.1</TargetFramework>
+    <RootNamespace>Hypertherm.NetworkUtilities</RootNamespace>
+    <TargetName>NetworkUtilities</TargetName>
+    <AssemblyName>NetworkUtilities</AssemblyName>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <PackageId>NetworkUtilities</PackageId>
+    <Version>1.0.0</Version>
+    <Company>Hypertherm</Company>
+    <Authors>Hypertherm</Authors>
+    <PackageDescription>This package contains NetworkUtilities!</PackageDescription>
+  </PropertyGroup>
+</Project>
