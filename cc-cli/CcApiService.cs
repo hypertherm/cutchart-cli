@@ -306,7 +306,14 @@ namespace Hypertherm.CcCli
                     }
                     catch (HttpRequestException e)
                     {
-                        _logger.Log(JObject.Parse(responseBody)["error"].Value<string>(), MessageType.Error);
+                        _logger.Log(
+                            JObject.Parse(responseBody)["error"].Value<string>(),
+                            MessageType.Error
+                        );
+                        _logger.Log(
+                            $"HttpRequestException message: {e.Message}",
+                            MessageType.DebugInfo
+                        );
                     }
                     catch (Exception e)
                     {
@@ -319,7 +326,10 @@ namespace Hypertherm.CcCli
             }
             else
             {
-                _logger.Log("Could not access custom cutchart data. No network connection detected.", MessageType.Error);
+                _logger.Log(
+                    "Could not access custom cutchart data. No network connection detected.",
+                    MessageType.Error
+                );
             }
         }
     }

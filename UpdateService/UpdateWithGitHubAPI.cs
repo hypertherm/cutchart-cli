@@ -73,8 +73,8 @@ namespace Hypertherm.Update
                 }
                 catch (Exception e)
                 {
-                    _logger.Log($"Error: {e}", MessageType.DebugInfo);
                     _logger.Log($"Failed to connect to Github API.", MessageType.Error);
+                    _logger.Log($"Exception message: {e.Message}", MessageType.DebugInfo);
                 }
             }
             else
@@ -118,7 +118,8 @@ namespace Hypertherm.Update
                     }
                     catch (HttpRequestException e)
                     {
-                        _logger.Log($"Update failed. No network connection failed, unable to access {_httpClient.BaseAddress}.", MessageType.Error);
+                        _logger.Log($"Update failed. No network connection, unable to access {_httpClient.BaseAddress}.", MessageType.Error);
+                        _logger.Log($"HttpRequestException message: {e.Message}", MessageType.DebugInfo);
                     }
                     catch (Exception e)
                     {
@@ -146,9 +147,13 @@ namespace Hypertherm.Update
                     }
                 }
                 catch (HttpRequestException e)
-                {}
+                {
+                    _logger.Log($"HttpRequestException message: {e.Message}", MessageType.DebugInfo);
+                }
                 catch (Exception e)
-                {}
+                {
+                    _logger.Log($"An unhandled exception has occurred: {e.Message}", MessageType.DebugInfo);
+                }
 
                 if(File.Exists(tmpDir + ccCliFilename))
                 {
@@ -217,7 +222,8 @@ namespace Hypertherm.Update
                 }
                 catch (HttpRequestException e)
                 {
-                    _logger.Log($"Update failed. No network connection failed, unable to access the latest released version on GitHub.", MessageType.Error);
+                    _logger.Log($"Update failed. No network connection, unable to access the latest released version on GitHub.", MessageType.Error);
+                    _logger.Log($"HttpRequestException message: {e.Message}", MessageType.DebugInfo);
                 }
                 catch (Exception e)
                 {
