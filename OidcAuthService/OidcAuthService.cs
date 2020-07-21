@@ -226,7 +226,7 @@ namespace Hypertherm.OidcAuth
             _localStorage.Store("cc-cli:" + user, new Dictionary<string, string> { });
 
             _analyticsService.GenericTrace($"Logging out user.");
-            _logger.Log($"Logged out.", MessageType.DisplayInfo);
+            _logger.Log($"Logged out.", MessageType.DisplayText);
         }
     }
 }

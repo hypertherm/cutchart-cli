@@ -12,7 +12,8 @@ namespace Hypertherm.Logging
 
         public enum MessageType
         {
-            DisplayInfo = 0,
+            DisplayText = 0,
+            DisplayData,
             Warning,
             Error,
             DebugInfo
@@ -43,6 +44,10 @@ namespace Hypertherm.Logging
             else if (type == MessageType.DebugInfo)
             {
                 Console.ForegroundColor = ConsoleColor.DarkCyan;
+            }
+            else if (type == MessageType.DisplayData)
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
             }
 
             if (type <= _logggingLevel)

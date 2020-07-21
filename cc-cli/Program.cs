@@ -97,11 +97,11 @@ namespace Hypertherm.CcCli
             {
                 if (argHandler.ArgData.Help)
                 {
-                    _logger.Log(argHandler.ArgData.HelpString, MessageType.DisplayInfo);
+                    _logger.Log(argHandler.ArgData.HelpString, MessageType.DisplayText);
                 }
                 else if (argHandler.ArgData.Version)
                 {
-                    _logger.Log(Assembly.GetEntryAssembly().GetName().Version.ToString(), MessageType.DisplayInfo);
+                    _logger.Log(Assembly.GetEntryAssembly().GetName().Version.ToString(), MessageType.DisplayData);
                 }
                 else if(!string.IsNullOrEmpty(argHandler.ArgData.Settings))
                 {
@@ -120,8 +120,8 @@ namespace Hypertherm.CcCli
                     }
 
                     // Possibly make a list of settings to iterate over or a standalone class to manage them
-                    _logger.Log($"{storageKeyBase}settings" , MessageType.DisplayInfo);
-                    _logger.Log($"  {CHECKFORUPDATES}: {_localStorageGlobalSettings.Get(storageKeyBase + CHECKFORUPDATES)}", MessageType.DisplayInfo);
+                    _logger.Log($"{storageKeyBase}settings" , MessageType.DisplayText);
+                    _logger.Log($"  {CHECKFORUPDATES}: {_localStorageGlobalSettings.Get(storageKeyBase + CHECKFORUPDATES)}", MessageType.DisplayData);
                 }
                 else if(argHandler.ArgData.Update)
                 {
@@ -131,61 +131,76 @@ namespace Hypertherm.CcCli
                                        .GetResult();
 
                     var userResponse = "";
-                    if(releases.Count > 0)
+                    var numberOfReleases = releases.Count;
+                    if(numberOfReleases > 0)
                     {
-                        _logger.Log("Available versions:", MessageType.DisplayInfo);
-                        foreach(var release in releases)
+                        _logger.Log("Available versions:", MessageType.DisplayText);
+
+                        var releaseToDisplay = 0;
+                        do
                         {
-                            if("v" + _updater.LatestReleasedVersion().ToString() == release)
+                            for(int i = 0; i < 5; i++)
                             {
-                                _logger.Log($"  {release} *latest*", MessageType.DisplayInfo);
-                            }
-                            else
-                            {
-                                _logger.Log($"  {release}", MessageType.DisplayInfo);
-                            }
-                        }
-                        _logger.Log("Specify a version or just press 'Enter' to cancel.", MessageType.DisplayInfo);
-
-                        // Change argumenet string to desired response when debugging
-                        userResponse = GetUserInput("");
-
-                        if(!string.IsNullOrEmpty(userResponse))
-                        {
-                            if(userResponse == "latest" && _updater.IsUpdateAvailable())
-                            {
-                                UpdateIsAvailableConversation();
-                            }
-                            else
-                            {
-                                string releaseVersion = "";
-
-                                if(releases.Contains(userResponse))
+                                if(releaseToDisplay < numberOfReleases)
                                 {
-                                    releaseVersion = userResponse;
+                                    if( releases[releaseToDisplay] == "v" + _updater.LatestReleasedVersion().ToString())
+                                    {
+                                        _logger.Log($"  {releases[releaseToDisplay]} *latest*", MessageType.DisplayData);
+                                    }
+                                    else
+                                    {
+                                        _logger.Log($"  {releases[releaseToDisplay]}", MessageType.DisplayData);
+                                    }
+                                    releaseToDisplay++;
                                 }
-                                else if(releases.Contains("v" + userResponse))
-                                {
-                                    releaseVersion = "v" + userResponse;
-                                }
+                            }
 
-                                if(releaseVersion != "")
+                            if(releaseToDisplay < numberOfReleases)
+                            {
+                                _logger.Log("(Type \"more\" to see additional versions.)", MessageType.DisplayText);
+                            }
+                            _logger.Log("Specify a version or press 'Enter' to cancel update.", MessageType.DisplayText);
+
+                            // Change argumenet string to desired user response when debugging
+                            userResponse = GetUserInput("");
+
+                            if(!string.IsNullOrEmpty(userResponse) && userResponse != "more")
+                            {
+                                if(userResponse == "latest" && _updater.IsUpdateAvailable())
                                 {
-                                    _logger.Log($"Updating to release {releaseVersion}.", MessageType.DisplayInfo);
-                                    _updater.Update(releaseVersion)
-                                        .GetAwaiter()
-                                        .GetResult();
+                                    UpdateIsAvailableConversation();
                                 }
                                 else
                                 {
-                                    _logger.Log("No release version was specified.", MessageType.DisplayInfo);
+                                    string releaseVersion = "";
+
+                                    if(releases.Contains(userResponse))
+                                    {
+                                        releaseVersion = userResponse;
+                                    }
+                                    else if(releases.Contains("v" + userResponse))
+                                    {
+                                        releaseVersion = "v" + userResponse;
+                                    }
+
+                                    if(releaseVersion != "")
+                                    {
+                                        _logger.Log($"Updating to release {releaseVersion}.", MessageType.DisplayText);
+                                        _updater.Update(releaseVersion)
+                                            .GetAwaiter()
+                                            .GetResult();
+                                    }
+                                    else
+                                    {
+                                        _logger.Log("No release version was specified.", MessageType.Warning);
+                                    }
                                 }
                             }
-                        }
-                        else
-                        {
-                            _logger.Log("Update process was cancelled.", MessageType.DisplayInfo);
-                        }
+                            else if(userResponse != "more")
+                            {
+                                _logger.Log("Update process was cancelled.", MessageType.DisplayText);
+                            }
+                        }while(userResponse == "more");
                     }
                 }
                 else if (argHandler.ArgData.DumpLog)
@@ -210,7 +225,7 @@ namespace Hypertherm.CcCli
 
                             return;
                         }
-                        _logger.Log("Disable update notifications? ('y/yes' or 'n/no')", MessageType.DisplayInfo);
+                        _logger.Log("Disable update notifications? ('y/yes' or 'n/no')", MessageType.DisplayText);
                         
                         // check for user response and store it in local storage for future runs
                         var userResponse = !UserYesNoRespose();
@@ -246,7 +261,7 @@ namespace Hypertherm.CcCli
                             {
                                 foreach (string productName in productNames)
                                 {
-                                    _logger.Log(productName, MessageType.DisplayInfo);
+                                    _logger.Log(productName, MessageType.DisplayData);
                                 }
                             }
                             else
@@ -329,25 +344,25 @@ namespace Hypertherm.CcCli
                     // Logging out is the only option we accept in multple user flows
                     if(!argHandler.ArgData.Logout)
                     {
-                        _logger.Log("No 'command' was found in the argument list.", MessageType.DebugInfo);
-                        _logger.Log(argHandler.ArgData.HelpString, MessageType.DisplayInfo);
+                        _logger.Log("No 'command' was found in the argument list.", MessageType.Error);
+                        _logger.Log(argHandler.ArgData.HelpString, MessageType.DisplayText);
                     }
                 }
             }
 
             // Newline buffer at end of output before new command prompt displays
-            _logger.Log("", MessageType.DisplayInfo);
+            _logger.Log("", MessageType.DisplayText);
         }
 
         private static bool UpdateIsAvailableConversation(string testResponse = "n")
         {
             var updated = false;
 
-            _logger.Log($"An update to cc-cli v{_updater.LatestReleasedVersion().ToString()} is available. Continue with update? ('y/yes' or 'n/no')", MessageType.DisplayInfo);
+            _logger.Log($"An update to cc-cli v{_updater.LatestReleasedVersion().ToString()} is available. Continue with update? ('y/yes' or 'n/no')", MessageType.DisplayText);
 
             if(UserYesNoRespose(testResponse))
             {
-                _logger.Log("Updating to latest release.", MessageType.DisplayInfo);
+                _logger.Log("Updating to latest release.", MessageType.DisplayText);
                 _updater.Update()
                 .GetAwaiter()
                 .GetResult();
@@ -369,7 +384,7 @@ namespace Hypertherm.CcCli
                 && userResponse != "n"
                 && userResponse != "no")
             {
-                _logger.Log("Please provide a valid response.", MessageType.DisplayInfo);
+                _logger.Log("Please provide a valid response.", MessageType.Warning);
                 userResponse = GetUserInput(testResponse);
             }
 
@@ -380,17 +395,17 @@ namespace Hypertherm.CcCli
         {
             var userResponse = "";
 
+            Console.ForegroundColor = ConsoleColor.Magenta;
             if(Debugger.IsAttached)
             {
-                // Change this to a version to debug the check for specifiv updates code.
-                userResponse = debugResponse;
+                userResponse = debugResponse.ToLower();
+                Console.WriteLine(userResponse);
             }
             else
             {
-                Console.ForegroundColor = ConsoleColor.Magenta;
                 userResponse = Console.ReadLine().ToLower();
-                Console.ForegroundColor = _defaultConsoleColor;
             }
+            Console.ForegroundColor = _defaultConsoleColor;
 
             return userResponse;
         }
@@ -399,11 +414,11 @@ namespace Hypertherm.CcCli
         {
             if (File.Exists(outfile))
             {
-                _logger.Log("Succeeded! :D", MessageType.DisplayInfo);
+                _logger.Log("Succeeded! :D", MessageType.DisplayText);
             }
             else
             {
-                _logger.Log("Failed. D:", MessageType.DisplayInfo);
+                _logger.Log("Failed. D:", MessageType.DisplayText);
             }
         }
     }
