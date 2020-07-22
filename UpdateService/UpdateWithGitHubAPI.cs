@@ -88,8 +88,9 @@ namespace Hypertherm.Update
         {
             if(NetworkUtilities.NetworkConnectivity.IsNetworkAvailable())
             {
+                var currentVersion = Version.Parse(Assembly.GetEntryAssembly().GetName().Version.ToString());
                 _logger.Log($"Updating to release {version}.", MessageType.DisplayText);
-                _analyticsService.GenericTrace($"Performing an update to release{version}.");
+                _analyticsService.GenericTrace($"Performing an update to release{version} from {currentVersion}.");
                 string downloadUrl = "";
 
                 if(version == "latest")
@@ -160,7 +161,6 @@ namespace Hypertherm.Update
                 if(File.Exists(tmpDir + ccCliFilename))
                 {
                     var update = "update.bat";
-                    var currentVersion = Version.Parse(Assembly.GetEntryAssembly().GetName().Version.ToString());
                     var oldVersDir = $"{Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData).ToString()}\\cc-cli\\versions\\{currentVersion}\\";
                     Directory.CreateDirectory(oldVersDir);
 

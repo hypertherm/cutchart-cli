@@ -104,7 +104,7 @@ namespace Hypertherm.CcCli
                 }
                 else if (argHandler.ArgData.Version)
                 {
-                    _logger.Log(Assembly.GetEntryAssembly().GetName().Version.ToString(), MessageType.DisplayData);
+                    _logger.Log(Assembly.GetEntryAssembly().GetName().Version.ToString(3), MessageType.DisplayData);
                 }
                 else if(!string.IsNullOrEmpty(argHandler.ArgData.Settings))
                 {
@@ -137,6 +137,7 @@ namespace Hypertherm.CcCli
                     var numberOfReleases = releases.Count;
                     if(numberOfReleases > 0)
                     {
+                        var currentVersion = Assembly.GetEntryAssembly().GetName().Version.ToString(3);
                         _logger.Log("Available versions:", MessageType.DisplayText);
 
                         var releaseToDisplay = 0;
@@ -146,14 +147,20 @@ namespace Hypertherm.CcCli
                             {
                                 if(releaseToDisplay < numberOfReleases)
                                 {
-                                    if( releases[releaseToDisplay] == "v" + _updater.LatestReleasedVersion().ToString())
+                                    string versionFlags = "";
+
+                                    if(releases[releaseToDisplay] == "v" + _updater.LatestReleasedVersion().ToString(3))
                                     {
-                                        _logger.Log($"  {releases[releaseToDisplay]} *latest*", MessageType.DisplayData);
+                                        versionFlags += " [latest]";
                                     }
-                                    else
+
+                                    if(releases[releaseToDisplay] == "v" + currentVersion)
                                     {
-                                        _logger.Log($"  {releases[releaseToDisplay]}", MessageType.DisplayData);
+                                        versionFlags += " [current]";
                                     }
+                                    
+                                    _logger.Log($"  {releases[releaseToDisplay]}{versionFlags}", MessageType.DisplayData);
+                                    
                                     releaseToDisplay++;
                                 }
                             }
@@ -165,7 +172,7 @@ namespace Hypertherm.CcCli
                             _logger.Log("Specify a version or press 'Enter' to cancel update.", MessageType.DisplayText);
 
                             // Change argumenet string to desired user response when debugging
-                            userResponse = GetUserInput("");
+                            userResponse = GetUserInput("more");
 
                             if(!string.IsNullOrEmpty(userResponse) && userResponse != "more")
                             {
@@ -360,7 +367,7 @@ namespace Hypertherm.CcCli
         {
             var updated = false;
 
-            _logger.Log($"An update to cc-cli v{_updater.LatestReleasedVersion().ToString()} is available. Continue with update? ('y/yes' or 'n/no')", MessageType.DisplayText);
+            _logger.Log($"An update to cc-cli v{_updater.LatestReleasedVersion().ToString(3)} is available. Continue with update? ('y/yes' or 'n/no')", MessageType.DisplayText);
 
             if(UserYesNoRespose(testResponse))
             {
