@@ -110,6 +110,7 @@ namespace Hypertherm.Update
                             string responseBody = await response.Content?.ReadAsStringAsync();
                             JObject jsonBody = JObject.Parse(responseBody);
                             downloadUrl = jsonBody
+                                ["assets"]
                                 .Values<JObject>()
                                 .ToList()
                                 .FirstOrDefault()

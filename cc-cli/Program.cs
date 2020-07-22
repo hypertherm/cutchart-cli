@@ -58,8 +58,6 @@ namespace Hypertherm.CcCli
                 _logger.Log(argHandler.ArgData.ToString(), MessageType.DebugInfo);
             }
 
-           
-
             // Setup Local Encrypted Storage Config
             var localStorageConfig = new LocalStorageConfiguration()
             {
