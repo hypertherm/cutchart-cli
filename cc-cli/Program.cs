@@ -57,6 +57,10 @@ namespace Hypertherm.CcCli
 
                 return;
             }
+            else
+            {
+                _logger.Log(argHandler.ArgData.LogString, MessageType.DebugInfo);
+            }
 
             if (argHandler.ArgData.Debug)
             {
@@ -75,6 +79,7 @@ namespace Hypertherm.CcCli
                     )
                 )
             };
+            
             // Create a Local Storage object for Global persisting settings
             _localStorageGlobalSettings = new LocalStorage(
                 localStorageConfig, 
@@ -353,7 +358,7 @@ namespace Hypertherm.CcCli
                     // Logging out is the only option we accept in multple user flows
                     if(!argHandler.ArgData.Logout)
                     {
-                        _logger.Log("No 'command' was found in the argument list.", MessageType.Error);
+                        _logger.Log("No valid 'command' or 'switch/option' was found in the argument list.", MessageType.Error);
                         _logger.Log(argHandler.ArgData.HelpString, MessageType.DisplayText);
                     }
                 }
