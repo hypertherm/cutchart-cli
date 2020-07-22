@@ -88,7 +88,8 @@ namespace Hypertherm.Update
         {
             if(NetworkUtilities.NetworkConnectivity.IsNetworkAvailable())
             {
-                _analyticsService.GenericTrace($"Performing an update to latest.");
+                _logger.Log($"Updating to release {version}.", MessageType.DisplayText);
+                _analyticsService.GenericTrace($"Performing an update to release{version}.");
                 string downloadUrl = "";
 
                 if(version == "latest")

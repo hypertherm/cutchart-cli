@@ -185,7 +185,6 @@ namespace Hypertherm.CcCli
 
                                     if(releaseVersion != "")
                                     {
-                                        _logger.Log($"Updating to release {releaseVersion}.", MessageType.DisplayText);
                                         _updater.Update(releaseVersion)
                                             .GetAwaiter()
                                             .GetResult();
