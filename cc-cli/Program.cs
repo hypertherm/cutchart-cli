@@ -33,6 +33,11 @@ namespace Hypertherm.CcCli
 
         static void Main(string[] args)
         {
+            Console.CancelKeyPress += delegate {
+                // call methods to clean up
+                Console.ForegroundColor = _defaultConsoleColor;
+            };
+
             ArgumentHandler argHandler = new ArgumentHandler(args);
             
             ServiceProvider provider = ApplicationServiceProvider
