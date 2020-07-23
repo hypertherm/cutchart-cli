@@ -177,7 +177,7 @@ namespace Hypertherm.CcCli
                             _logger.Log("Specify a version or press 'Enter' to cancel update.", MessageType.DisplayText);
 
                             // Change argumenet string to desired user response when debugging
-                            userResponse = GetUserInput("more");
+                            userResponse = GetUserInput("");
 
                             if(!string.IsNullOrEmpty(userResponse) && userResponse != "more")
                             {

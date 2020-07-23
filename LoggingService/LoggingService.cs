@@ -43,7 +43,7 @@ namespace Hypertherm.Logging
             }
             else if (type == MessageType.DebugInfo)
             {
-                Console.ForegroundColor = ConsoleColor.DarkCyan;
+                Console.ForegroundColor = ConsoleColor.Cyan;
             }
             else if (type == MessageType.DisplayData)
             {
