@@ -72,7 +72,8 @@ namespace Hypertherm.CcCli
             if (_args.Count == 0)
             {
                 _argData.Help = true;
-                 _argData.AddToLogString($"No arguments present so default: \"Help\" requested");
+                _argData.AddToLogString($"No arguments present so default: \"Help\" requested");
+                _argData.NoCommands = true;
             }
             else
             {

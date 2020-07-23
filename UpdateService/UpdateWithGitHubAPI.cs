@@ -73,8 +73,8 @@ namespace Hypertherm.Update
                 }
                 catch (Exception e)
                 {
-                    _logger.Log($"Error: {e}", MessageType.DebugInfo);
                     _logger.Log($"Failed to connect to Github API.", MessageType.Error);
+                    _logger.Log($"Exception message: {e.Message}", MessageType.DebugInfo);
                 }
             }
             else
@@ -88,7 +88,9 @@ namespace Hypertherm.Update
         {
             if(NetworkUtilities.NetworkConnectivity.IsNetworkAvailable())
             {
-                _analyticsService.GenericTrace($"Performing an update to latest.");
+                var currentVersion = Version.Parse(Assembly.GetEntryAssembly().GetName().Version.ToString());
+                _logger.Log($"Updating to release {version}.", MessageType.DisplayText);
+                _analyticsService.GenericTrace($"Performing an update to release{version} from {currentVersion}.");
                 string downloadUrl = "";
 
                 if(version == "latest")
@@ -109,6 +111,7 @@ namespace Hypertherm.Update
                             string responseBody = await response.Content?.ReadAsStringAsync();
                             JObject jsonBody = JObject.Parse(responseBody);
                             downloadUrl = jsonBody
+                                ["assets"]
                                 .Values<JObject>()
                                 .ToList()
                                 .FirstOrDefault()
@@ -118,7 +121,8 @@ namespace Hypertherm.Update
                     }
                     catch (HttpRequestException e)
                     {
-                        _logger.Log($"Update failed. No network connection failed, unable to access {_httpClient.BaseAddress}.", MessageType.Error);
+                        _logger.Log($"Update failed. No network connection, unable to access {_httpClient.BaseAddress}.", MessageType.Error);
+                        _logger.Log($"HttpRequestException message: {e.Message}", MessageType.DebugInfo);
                     }
                     catch (Exception e)
                     {
@@ -146,14 +150,17 @@ namespace Hypertherm.Update
                     }
                 }
                 catch (HttpRequestException e)
-                {}
+                {
+                    _logger.Log($"HttpRequestException message: {e.Message}", MessageType.DebugInfo);
+                }
                 catch (Exception e)
-                {}
+                {
+                    _logger.Log($"An unhandled exception has occurred: {e.Message}", MessageType.DebugInfo);
+                }
 
                 if(File.Exists(tmpDir + ccCliFilename))
                 {
                     var update = "update.bat";
-                    var currentVersion = Version.Parse(Assembly.GetEntryAssembly().GetName().Version.ToString());
                     var oldVersDir = $"{Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData).ToString()}\\cc-cli\\versions\\{currentVersion}\\";
                     Directory.CreateDirectory(oldVersDir);
 
@@ -217,7 +224,8 @@ namespace Hypertherm.Update
                 }
                 catch (HttpRequestException e)
                 {
-                    _logger.Log($"Update failed. No network connection failed, unable to access the latest released version on GitHub.", MessageType.Error);
+                    _logger.Log($"Update failed. No network connection, unable to access the latest released version on GitHub.", MessageType.Error);
+                    _logger.Log($"HttpRequestException message: {e.Message}", MessageType.DebugInfo);
                 }
                 catch (Exception e)
                 {
