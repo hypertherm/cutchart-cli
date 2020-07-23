@@ -40,6 +40,8 @@ namespace Hypertherm.Analytics
             _telemetryClient.Context.Operation.Name = "CC CLI";
             _sessionId = Guid.NewGuid().ToString();
             _telemetryClient.Context.Session.Id = _sessionId;
+
+            GenericTrace("Analytics Initialized.");
         }
 
         public void SetUser(string name, string nickname, string email, string issuerId, string userId)

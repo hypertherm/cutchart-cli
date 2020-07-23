@@ -295,7 +295,7 @@ namespace Hypertherm.CcCli
             }
             private bool _isError;
             public bool IsError => _isError;
-            private string _logString;
+            private string _logString = "";
             public string LogString => _logString;
 
             public static implicit operator Args(string ccType)
@@ -314,7 +314,7 @@ namespace Hypertherm.CcCli
                     Units = "English",
                     CcType = ccType,
                     _isError = false,
-                    _logString = "\n"
+                    _logString = ""
                 };
             }
 

@@ -57,9 +57,7 @@ namespace Hypertherm.CcCli
             // and then using it internally as you go.
             if (argHandler.ArgData.IsError)
             {
-                _logger.Log(argHandler.ArgData.LogString, MessageType.Error);
-
-                return;
+                ExitProgram(false, argHandler.ArgData.LogString);
             }
             else
             {
@@ -95,10 +93,6 @@ namespace Hypertherm.CcCli
                     ExitProgram(false);
                 }
             }
-
-            // Set up preferred IAnalyticsService, we are using Application Insights.
-            // You can build your own if you extend the IAnalyticsService interface.
-            _analyzer.GenericTrace("Analytics Initialized.");
 
             if(argHandler.ArgData.NoCommands)
             {
@@ -237,8 +231,7 @@ namespace Hypertherm.CcCli
                     if(UpdateIsAvailableConversation(updater))
                     {
                         Thread.Sleep(5000);
-
-                            return;
+                        ExitProgram(true, "cc-cli.exe is exiting to complete update.");
                     }
                     _logger.Log("Disable update notifications? ('y/yes' or 'n/no')", MessageType.DisplayText);
                     
@@ -279,7 +272,7 @@ namespace Hypertherm.CcCli
                             }
                             else
                             {
-                                _logger.Log("No product information was found.", MessageType.Error);
+                                ExitProgram(false,"No product information was found.");
                             }
                         }
                         else if (argHandler.ArgData.Command == "cutchart")
@@ -289,6 +282,11 @@ namespace Hypertherm.CcCli
                             {
                                 if (argHandler.ArgData.OutFile != null)
                                 {
+                                    if(File.Exists(argHandler.ArgData.OutFile))
+                                    {
+                                        File.Delete(argHandler.ArgData.OutFile);
+                                    }
+
                                     ccApiService.GetBaseCutChartData(
                                             argHandler.ArgData.OutFile,
                                             argHandler.ArgData.Product,
@@ -296,16 +294,23 @@ namespace Hypertherm.CcCli
                                             .GetAwaiter()
                                             .GetResult();
 
-                                    ExitStatus(argHandler.ArgData.OutFile);
+                                    if(File.Exists(argHandler.ArgData.OutFile))
+                                    {
+                                        ExitProgram(true, "Base cut chart data has successfully dowloaded.");
+                                    }
+                                    else
+                                    {
+                                        ExitProgram(false);
+                                    }
                                 }
                                 else
                                 {
-                                    _logger.Log("An 'outfile' must be specified to save cut chart data.", MessageType.Error);
+                                    ExitProgram(false, "An 'outfile' must be specified to save cut chart data.");
                                 }
                             }
                             else
                             {
-                                _logger.Log("A 'product' must be specified to get cut chart data as .XLSX.", MessageType.Error);
+                                ExitProgram(false, "A 'product' must be specified to get cut chart data as .XLSX.");
                             }
                         }
                         else if(argHandler.ArgData.Command == "customs")
@@ -318,33 +323,45 @@ namespace Hypertherm.CcCli
                                     {
                                         if (argHandler.ArgData.OutFile != null)
                                         {
+                                            if(File.Exists(argHandler.ArgData.OutFile))
+                                            {
+                                                File.Delete(argHandler.ArgData.OutFile);
+                                            }
+
                                             ccApiService.GetXmlTransformedCutChartData(
                                                 argHandler.ArgData.OutFile, argHandler.ArgData.XmlFile,
                                                 argHandler.ArgData.Product,
                                                 argHandler.ArgData.CcType)
                                                 .GetAwaiter()
                                                 .GetResult();
-
-                                            ExitStatus(argHandler.ArgData.OutFile);
+                                            
+                                            if(File.Exists(argHandler.ArgData.OutFile))
+                                            {
+                                                ExitProgram(true, "Custom cut chart data has successfully dowloaded.");
+                                            }
+                                            else
+                                            {
+                                                ExitProgram(false);
+                                            }
                                         }
                                         else
                                         {
-                                            _logger.Log("An 'outfile' must be specified to save cut chart data.", MessageType.Error);
+                                            ExitProgram(false, "An 'outfile' must be specified to save cut chart data.");
                                         }
                                     }
                                     else
                                     {
-                                        _logger.Log("An 'xmlfile' must be specified to customize cut chart data. Refer to the README for help with the XML schema.", MessageType.Error);
+                                        ExitProgram(false, "An 'xmlfile' must be specified to customize cut chart data. Refer to the README for help with the XML schema.");
                                     }
                                 }
                                 else
                                 {
-                                    _logger.Log("A 'product' must be specified to customize cut chart data.", MessageType.Error);
+                                    ExitProgram(false, "A 'product' must be specified to customize cut chart data.");
                                 }
                             }
                             else
                             {
-                                _logger.Log("The .XLSX file type must be specified to customize cut chart data.", MessageType.Error);
+                                ExitProgram(false, "The .XLSX file type must be specified to customize cut chart data.");
                             }
                         }
                     }
@@ -357,10 +374,12 @@ namespace Hypertherm.CcCli
                     // Logging out is the only option we accept in multple user flows
                     if(!argHandler.ArgData.Logout)
                     {
-                        _logger.Log("No valid 'command' or 'switch/option' was found in the argument list.", MessageType.Error);
-                        _logger.Log(argHandler.ArgData.HelpString, MessageType.DisplayText);
+                        ExitProgram(false, "No valid 'command' or 'switch/option' was found in the argument list. Use \"-h or --help\" for more information");
+                    }
                 }
             }
+
+            ExitProgram(true);
         }
 
         private static LocalStorage SetupUnencryptedLocalStorage()
