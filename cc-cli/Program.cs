@@ -44,7 +44,14 @@ namespace Hypertherm.CcCli
 
             if(string.IsNullOrEmpty(provider.GetRequiredService<IConfiguration>()["ClientID"]))
             {
-                ExitProgram(false, $"The \"ClientID\" is invalid or missing, please try a different version.");
+                if(argHandler.ArgData.NoCommands)
+                {
+                    _logger.Log($"The \"ClientID\" is invalid or missing, please try a different version.", MessageType.Warning);
+                }
+                else
+                {
+                    ExitProgram(false, $"The \"ClientID\" is invalid or missing, please try a different version.");
+                }
             }
             else if(string.IsNullOrEmpty(provider.GetRequiredService<IConfiguration>()["InstrumentationKey"]))
             {
@@ -96,6 +103,11 @@ namespace Hypertherm.CcCli
 
             if(argHandler.ArgData.NoCommands)
             {
+                if(!string.IsNullOrEmpty(argHandler.ArgData.Command))
+                {
+                    _logger.Log($"The \"{argHandler.ArgData.Command}\" command will not execute alongside the other requested 'switch/option'.", MessageType.Warning);
+                }
+
                 if (argHandler.ArgData.Help)
                 {
                     _logger.Log(argHandler.ArgData.HelpString, MessageType.DisplayText);
