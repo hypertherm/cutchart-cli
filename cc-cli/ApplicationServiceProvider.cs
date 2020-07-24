@@ -76,6 +76,9 @@ namespace Hypertherm.CcCli
                 MessageType.DebugInfo
                 : MessageType.Error
             );
+            
+            // Set up preferred IAnalyticsService, we are using Application Insights.
+            // You can build your own if you extend the IAnalyticsService interface.
             IAnalyticsService analyticsService = new ApplicationInsightsAnalytics(
                 configService,
                 logService

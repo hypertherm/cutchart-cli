@@ -21,31 +21,35 @@ namespace Hypertherm.CcCli
     {
         private static ConsoleColor _defaultConsoleColor = Console.ForegroundColor;
 
-        private static IUpdateService _updater;
         private static ILoggingService _logger;
-        private static IAnalyticsService _analyzer;
-
-        private static LocalStorage _localStorageGlobalSettings;
 
         // Global Settings Constants
+        private const string _storageKeyBase = "cc-cli:global.";
         private const string CHECKFORUPDATES = "check-for-updates";
         private static bool _checkForUpdates = true;
 
         static void Main(string[] args)
         {
             Console.CancelKeyPress += delegate {
-                // call methods to clean up
-                Console.ForegroundColor = _defaultConsoleColor;
+                ExitProgram(false);
             };
 
             ArgumentHandler argHandler = new ArgumentHandler(args);
-            
+
             ServiceProvider provider = ApplicationServiceProvider
                 .CreateServiceProvider(argHandler.ArgData.Debug);
 
             _logger = provider.GetRequiredService<ILoggingService>();
-            _analyzer = provider.GetRequiredService<IAnalyticsService>();
-            _updater = provider.GetRequiredService<IUpdateService>();
+            IUpdateService updater = provider.GetRequiredService<IUpdateService>();
+
+            if(string.IsNullOrEmpty(provider.GetRequiredService<IConfiguration>()["ClientID"]))
+            {
+                ExitProgram(false, $"The \"ClientID\" is invalid or missing, please try a different version.");
+            }
+            else if(string.IsNullOrEmpty(provider.GetRequiredService<IConfiguration>()["InstrumentationKey"]))
+            {
+                _logger.Log($"The \"InstrumentationKey\" is invalid or missing, resulting in an unconfigured Analytics Service.", MessageType.Warning);
+            }
 
             // Since the argumenthandler needs to establish the options for the logger
             // for now the argumenthandler builds up an error string and the prints it out.
@@ -53,9 +57,7 @@ namespace Hypertherm.CcCli
             // and then using it internally as you go.
             if (argHandler.ArgData.IsError)
             {
-                _logger.Log(argHandler.ArgData.LogString, MessageType.Error);
-
-                return;
+                ExitProgram(false, argHandler.ArgData.LogString);
             }
             else
             {
@@ -67,39 +69,30 @@ namespace Hypertherm.CcCli
                 _logger.Log(argHandler.ArgData.ToString(), MessageType.DebugInfo);
             }
 
-            // Setup Local Encrypted Storage Config
-            var localStorageConfig = new LocalStorageConfiguration()
-            {
-                AutoLoad = true,
-                AutoSave = true,
-                EnableEncryption = true,
-                EncryptionSalt = Convert.ToBase64String(
-                    Encoding.ASCII.GetBytes(
-                        provider.GetRequiredService<IConfiguration>()["StorageSaltString"]
-                    )
-                )
-            };
-            
-            // Create a Local Storage object for Global persisting settings
-            _localStorageGlobalSettings = new LocalStorage(
-                localStorageConfig, 
-                provider.GetRequiredService<IConfiguration>()["StoragePassword"]
-            );
+            LocalStorage localStorageGlobalSettings = null;
 
-            var storageKeyBase = "cc-cli:global.";
-            if (_localStorageGlobalSettings.Exists(storageKeyBase + CHECKFORUPDATES))
+            if(!string.IsNullOrEmpty(provider.GetRequiredService<IConfiguration>()["StorageSaltString"])
+                && !string.IsNullOrEmpty(provider.GetRequiredService<IConfiguration>()["StoragePassword"]))
             {
-                _checkForUpdates = (bool)_localStorageGlobalSettings.Get(storageKeyBase + CHECKFORUPDATES);
+                localStorageGlobalSettings = SetupEncryptedLocalStorage(
+                    provider.GetRequiredService<IConfiguration>()["StorageSaltString"],
+                    provider.GetRequiredService<IConfiguration>()["StoragePassword"]
+                );
             }
             else
             {
-                _localStorageGlobalSettings.Store(storageKeyBase + CHECKFORUPDATES, _checkForUpdates);
-                _localStorageGlobalSettings.Persist();
+                _logger.Log($"One or more of the encryption secrets are invalid or missing.", MessageType.Warning);
+                _logger.Log($"Do you want to continue using an unencrypted local storage?", MessageType.DisplayText);
+                if(UserYesNoRespose(""))
+                {
+                    _logger.Log($"Switching to an unencrypted local storage.", MessageType.Warning);
+                    localStorageGlobalSettings = SetupUnencryptedLocalStorage();
+                }
+                else
+                {
+                    ExitProgram(false);
+                }
             }
-            
-            // Set up preferred IAnalyticsService, we are using Application Insights.
-            // You can build your own if you extend the IAnalyticsService interface.
-            _analyzer.GenericTrace("Analytics Initialized.");
 
             if(argHandler.ArgData.NoCommands)
             {
@@ -115,28 +108,28 @@ namespace Hypertherm.CcCli
                 {
                     if(argHandler.ArgData.Settings != "show")
                     {
-                        var settingToToggle = storageKeyBase + argHandler.ArgData.Settings;
-                        if(_localStorageGlobalSettings.Exists(settingToToggle))
+                        var settingToToggle = _storageKeyBase + argHandler.ArgData.Settings;
+                        if(localStorageGlobalSettings.Exists(settingToToggle))
                         {
-                            _localStorageGlobalSettings.Store(settingToToggle, !(bool)_localStorageGlobalSettings.Get(settingToToggle));
-                            _localStorageGlobalSettings.Persist();
+                            localStorageGlobalSettings.Store(settingToToggle, !(bool)localStorageGlobalSettings.Get(settingToToggle));
+                            localStorageGlobalSettings.Persist();
                         }
                         else
                         {
-                            _logger.Log($"\"{argHandler.ArgData.Settings}\" is not a valid setting.", MessageType.Error);
+                            _logger.Log($"\"{argHandler.ArgData.Settings}\" is not a valid setting.", MessageType.Warning);
                         }
                     }
 
                     // Possibly make a list of settings to iterate over or a standalone class to manage them
-                    _logger.Log($"{storageKeyBase}settings" , MessageType.DisplayText);
-                    _logger.Log($"  {CHECKFORUPDATES}: {_localStorageGlobalSettings.Get(storageKeyBase + CHECKFORUPDATES)}", MessageType.DisplayData);
+                    _logger.Log($"{_storageKeyBase}settings" , MessageType.DisplayText);
+                    _logger.Log($"  {CHECKFORUPDATES}: {localStorageGlobalSettings.Get(_storageKeyBase + CHECKFORUPDATES)}", MessageType.DisplayData);
                 }
                 else if(argHandler.ArgData.Update)
                 {
                     List<string> releases = new List<string>();
-                    releases = _updater.ListReleases()
-                                       .GetAwaiter()
-                                       .GetResult();
+                    releases = updater.ListReleases()
+                                        .GetAwaiter()
+                                        .GetResult();
 
                     var userResponse = "";
                     var numberOfReleases = releases.Count;
@@ -154,7 +147,7 @@ namespace Hypertherm.CcCli
                                 {
                                     string versionFlags = "";
 
-                                    if(releases[releaseToDisplay] == "v" + _updater.LatestReleasedVersion().ToString(3))
+                                    if(releases[releaseToDisplay] == "v" + updater.LatestReleasedVersion().ToString(3))
                                     {
                                         versionFlags += " [latest]";
                                     }
@@ -177,13 +170,17 @@ namespace Hypertherm.CcCli
                             _logger.Log("Specify a version or press 'Enter' to cancel update.", MessageType.DisplayText);
 
                             // Change argumenet string to desired user response when debugging
-                            userResponse = GetUserInput("more");
+                            userResponse = GetUserInput("");
 
                             if(!string.IsNullOrEmpty(userResponse) && userResponse != "more")
                             {
-                                if(userResponse == "latest" && _updater.IsUpdateAvailable())
+                                if(userResponse == "latest" && updater.IsUpdateAvailable())
                                 {
-                                    UpdateIsAvailableConversation();
+                                    if(UpdateIsAvailableConversation(updater))
+                                    {
+                                        Thread.Sleep(5000);
+                                        ExitProgram(true, "cc-cli.exe is exiting to complete the update.");
+                                    }
                                 }
                                 else
                                 {
@@ -200,9 +197,9 @@ namespace Hypertherm.CcCli
 
                                     if(releaseVersion != "")
                                     {
-                                        _updater.Update(releaseVersion)
-                                            .GetAwaiter()
-                                            .GetResult();
+                                        updater.Update(releaseVersion)
+                                                .GetAwaiter()
+                                                .GetResult();
                                     }
                                     else
                                     {
@@ -229,31 +226,26 @@ namespace Hypertherm.CcCli
             else
             {
                 // Check for updates if enabled
-                if(_checkForUpdates)
+                if(_checkForUpdates && updater.IsUpdateAvailable())
                 {
-                    if(_updater.IsUpdateAvailable())
+                    if(UpdateIsAvailableConversation(updater))
                     {
-                        if(UpdateIsAvailableConversation())
-                        {
-                            Thread.Sleep(5000);
-
-                            return;
-                        }
-                        _logger.Log("Disable update notifications? ('y/yes' or 'n/no')", MessageType.DisplayText);
-                        
-                        // check for user response and store it in local storage for future runs
-                        var userResponse = !UserYesNoRespose();
-
-                        _localStorageGlobalSettings.Store(storageKeyBase + CHECKFORUPDATES, userResponse);
-                        _localStorageGlobalSettings.Persist();
+                        Thread.Sleep(5000);
+                        ExitProgram(true, "cc-cli.exe is exiting to complete the update.");
                     }
+                    _logger.Log("Disable update notifications? ('y/yes' or 'n/no')", MessageType.DisplayText);
+                    
+                    // check for user response and store it in local storage for future runs
+                    localStorageGlobalSettings.Store(_storageKeyBase + CHECKFORUPDATES, !UserYesNoRespose());
+                    localStorageGlobalSettings.Persist();
                 }
 
                 var _authenticator = new OidcAuthService(
                     new HttpClientHandler(), // does not support retry policy at present
                     provider.GetRequiredService<IConfiguration>(),
+                    localStorageGlobalSettings,
                     provider.GetRequiredService<IAnalyticsService>(),
-                    provider.GetRequiredService<ILoggingService>()
+                    _logger
                 );
 
                 if (argHandler.ArgData.Logout)
@@ -280,7 +272,7 @@ namespace Hypertherm.CcCli
                             }
                             else
                             {
-                                _logger.Log("No product information was found.", MessageType.Error);
+                                ExitProgram(false,"No product information was found.");
                             }
                         }
                         else if (argHandler.ArgData.Command == "cutchart")
@@ -290,6 +282,11 @@ namespace Hypertherm.CcCli
                             {
                                 if (argHandler.ArgData.OutFile != null)
                                 {
+                                    if(File.Exists(argHandler.ArgData.OutFile))
+                                    {
+                                        File.Delete(argHandler.ArgData.OutFile);
+                                    }
+
                                     ccApiService.GetBaseCutChartData(
                                             argHandler.ArgData.OutFile,
                                             argHandler.ArgData.Product,
@@ -297,16 +294,23 @@ namespace Hypertherm.CcCli
                                             .GetAwaiter()
                                             .GetResult();
 
-                                    ExitStatus(argHandler.ArgData.OutFile);
+                                    if(File.Exists(argHandler.ArgData.OutFile))
+                                    {
+                                        ExitProgram(true, "Base cut chart data has successfully dowloaded.");
+                                    }
+                                    else
+                                    {
+                                        ExitProgram(false);
+                                    }
                                 }
                                 else
                                 {
-                                    _logger.Log("An 'outfile' must be specified to save cut chart data.", MessageType.Error);
+                                    ExitProgram(false, "An 'outfile' must be specified to save cut chart data.");
                                 }
                             }
                             else
                             {
-                                _logger.Log("A 'product' must be specified to get cut chart data as .XLSX.", MessageType.Error);
+                                ExitProgram(false, "A 'product' must be specified to get cut chart data as .XLSX.");
                             }
                         }
                         else if(argHandler.ArgData.Command == "customs")
@@ -319,33 +323,45 @@ namespace Hypertherm.CcCli
                                     {
                                         if (argHandler.ArgData.OutFile != null)
                                         {
+                                            if(File.Exists(argHandler.ArgData.OutFile))
+                                            {
+                                                File.Delete(argHandler.ArgData.OutFile);
+                                            }
+
                                             ccApiService.GetXmlTransformedCutChartData(
                                                 argHandler.ArgData.OutFile, argHandler.ArgData.XmlFile,
                                                 argHandler.ArgData.Product,
                                                 argHandler.ArgData.CcType)
                                                 .GetAwaiter()
                                                 .GetResult();
-
-                                            ExitStatus(argHandler.ArgData.OutFile);
+                                            
+                                            if(File.Exists(argHandler.ArgData.OutFile))
+                                            {
+                                                ExitProgram(true, "Custom cut chart data has successfully dowloaded.");
+                                            }
+                                            else
+                                            {
+                                                ExitProgram(false);
+                                            }
                                         }
                                         else
                                         {
-                                            _logger.Log("An 'outfile' must be specified to save cut chart data.", MessageType.Error);
+                                            ExitProgram(false, "An 'outfile' must be specified to save cut chart data.");
                                         }
                                     }
                                     else
                                     {
-                                        _logger.Log("An 'xmlfile' must be specified to customize cut chart data. Refer to the README for help with the XML schema.", MessageType.Error);
+                                        ExitProgram(false, "An 'xmlfile' must be specified to customize cut chart data. Refer to the README for help with the XML schema.");
                                     }
                                 }
                                 else
                                 {
-                                    _logger.Log("A 'product' must be specified to customize cut chart data.", MessageType.Error);
+                                    ExitProgram(false, "A 'product' must be specified to customize cut chart data.");
                                 }
                             }
                             else
                             {
-                                _logger.Log("The .XLSX file type must be specified to customize cut chart data.", MessageType.Error);
+                                ExitProgram(false, "The .XLSX file type must be specified to customize cut chart data.");
                             }
                         }
                     }
@@ -358,33 +374,95 @@ namespace Hypertherm.CcCli
                     // Logging out is the only option we accept in multple user flows
                     if(!argHandler.ArgData.Logout)
                     {
-                        _logger.Log("No valid 'command' or 'switch/option' was found in the argument list.", MessageType.Error);
-                        _logger.Log(argHandler.ArgData.HelpString, MessageType.DisplayText);
+                        ExitProgram(false, "No valid 'command' or 'switch/option' was found in the argument list. Use \"-h or --help\" for more information");
                     }
                 }
             }
 
-            // Newline buffer at end of output before new command prompt displays
-            _logger.Log("", MessageType.DisplayText);
+            ExitProgram(true);
         }
 
-        private static bool UpdateIsAvailableConversation(string testResponse = "n")
+        private static LocalStorage SetupUnencryptedLocalStorage()
         {
-            var updated = false;
+            LocalStorage localStorageGlobalSettings;
 
-            _logger.Log($"An update to cc-cli v{_updater.LatestReleasedVersion().ToString(3)} is available. Continue with update? ('y/yes' or 'n/no')", MessageType.DisplayText);
+            // Setup Local Unencrypted Storage Config
+            var localStorageConfig = new LocalStorageConfiguration()
+            {
+                
+                Filename = "cc-cli-unencrypted-storage.localstorage",
+                AutoLoad = true,
+                AutoSave = true,
+                EnableEncryption = false
+            };
 
+            // Create a Local Storage object for Global persisting settings
+            localStorageGlobalSettings = new LocalStorage(localStorageConfig);
+
+            if (localStorageGlobalSettings.Exists(_storageKeyBase + CHECKFORUPDATES))
+            {
+                _checkForUpdates = (bool)localStorageGlobalSettings.Get(_storageKeyBase + CHECKFORUPDATES);
+            }
+            else
+            {
+                localStorageGlobalSettings.Store(_storageKeyBase + CHECKFORUPDATES, _checkForUpdates);
+                localStorageGlobalSettings.Persist();
+            }
+            
+            return localStorageGlobalSettings;
+        }
+
+        private static LocalStorage SetupEncryptedLocalStorage(string saltString, string password)
+        {
+            LocalStorage localStorageGlobalSettings;
+
+            // Setup Local Encrypted Storage Config
+            var localStorageConfig = new LocalStorageConfiguration()
+            {
+                Filename = "cc-cli-encrypted-storage.localstorage",
+                AutoLoad = true,
+                AutoSave = true,
+                EnableEncryption = true,
+                EncryptionSalt = Convert.ToBase64String(
+                    Encoding.ASCII.GetBytes(saltString)
+                )
+            };
+            
+            // Create a Local Storage object for Global persisting settings
+            localStorageGlobalSettings = new LocalStorage(
+                localStorageConfig, 
+                password
+            );
+            
+            if (localStorageGlobalSettings.Exists(_storageKeyBase + CHECKFORUPDATES))
+            {
+                _checkForUpdates = (bool)localStorageGlobalSettings.Get(_storageKeyBase + CHECKFORUPDATES);
+            }
+            else
+            {
+                localStorageGlobalSettings.Store(_storageKeyBase + CHECKFORUPDATES, _checkForUpdates);
+                localStorageGlobalSettings.Persist();
+            }
+            
+            return localStorageGlobalSettings;
+        }
+
+        private static bool UpdateIsAvailableConversation(IUpdateService updater ,string testResponse = "n")
+        {
+            var performUpdate = false;
+
+            _logger.Log($"An update to cc-cli v{updater.LatestReleasedVersion().ToString(3)} is available. Continue with update? ('y/yes' or 'n/no')", MessageType.DisplayText);
             if(UserYesNoRespose(testResponse))
             {
                 _logger.Log("Updating to latest release.", MessageType.DisplayText);
-                _updater.Update()
-                .GetAwaiter()
-                .GetResult();
+                updater.Update()
+                        .GetAwaiter()
+                        .GetResult();
 
-                updated = true;
+                performUpdate = true;
             }
 
-            return updated;
+            return performUpdate;
         }
 
         // Pass in a value to debug specific user responses.
@@ -424,16 +502,30 @@ namespace Hypertherm.CcCli
             return userResponse;
         }
 
-        private static void ExitStatus(string outfile)
+        private static void ExitProgram(bool success, string message = "")
         {
-            if (File.Exists(outfile))
+            int exitCode = 0;
+
+            if(!string.IsNullOrEmpty(message)
+                && !string.IsNullOrWhiteSpace(message))
             {
-                _logger.Log("Succeeded! :D", MessageType.DisplayText);
+                message += "\n";
+            }
+
+            if (success)
+            {
+                exitCode = 0;
+                _logger.Log(message, MessageType.DisplayText);
             }
             else
             {
-                _logger.Log("Failed. D:", MessageType.DisplayText);
+                exitCode = -1;
+                _logger.Log(message, MessageType.Error);
             }
+
+            Console.ForegroundColor = _defaultConsoleColor;
+
+            System.Environment.Exit(exitCode);
         }
     }
 }

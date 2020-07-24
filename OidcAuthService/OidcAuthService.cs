@@ -30,9 +30,10 @@ namespace Hypertherm.OidcAuth
         private JwtSecurityToken _accessToken;
         private string _refreshToken;
 
-        public OidcAuthService(HttpClientHandler clientHandler, IConfiguration config, IAnalyticsService analyticsService, ILoggingService logger)
+        public OidcAuthService(HttpClientHandler clientHandler, IConfiguration config, LocalStorage localStorage, IAnalyticsService analyticsService, ILoggingService logger)
         {
             _config = config;
+            _localStorage = localStorage;
             _analyticsService = analyticsService;
             _logger = logger;
 
@@ -55,16 +56,6 @@ namespace Hypertherm.OidcAuth
                 Policy = new Policy { RequireAccessTokenHash = false },
             };
             _oidcClient = new OidcClient(oidcOptions);
-
-            // Setup Local Encrypted Storage Config
-            var localStorageConfig = new LocalStorageConfiguration()
-            {
-                AutoLoad = true,
-                AutoSave = true,
-                EnableEncryption = true,
-                EncryptionSalt = Convert.ToBase64String(Encoding.ASCII.GetBytes(_config["StorageSaltString"]))
-            };
-            _localStorage = new LocalStorage(localStorageConfig, _config["StoragePassword"]);
         }
 
         public async Task<string> Login(string user = "default-user")

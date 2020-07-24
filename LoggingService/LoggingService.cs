@@ -33,17 +33,17 @@ namespace Hypertherm.Logging
             if (type == MessageType.Error)
             {
                 _error = true;
-                message = $"  {message}";
+                message = $"{message}";
                 Console.ForegroundColor = ConsoleColor.Red;
             }
             else if (type == MessageType.Warning)
             {
-                message = $"  {message}";
+                message = $"{message}";
                 Console.ForegroundColor = ConsoleColor.Yellow;
             }
             else if (type == MessageType.DebugInfo)
             {
-                Console.ForegroundColor = ConsoleColor.DarkCyan;
+                Console.ForegroundColor = ConsoleColor.Cyan;
             }
             else if (type == MessageType.DisplayData)
             {
