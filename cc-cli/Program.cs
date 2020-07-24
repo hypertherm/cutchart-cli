@@ -44,7 +44,7 @@ namespace Hypertherm.CcCli
 
             if(string.IsNullOrEmpty(provider.GetRequiredService<IConfiguration>()["ClientID"]))
             {
-                ExitProgram(false, $"The \"ClientID\" is invalid or missing, terminating application.");
+                ExitProgram(false, $"The \"ClientID\" is invalid or missing, please try a different version.");
             }
             else if(string.IsNullOrEmpty(provider.GetRequiredService<IConfiguration>()["InstrumentationKey"]))
             {
@@ -179,7 +179,7 @@ namespace Hypertherm.CcCli
                                     if(UpdateIsAvailableConversation(updater))
                                     {
                                         Thread.Sleep(5000);
-                                        ExitProgram(true, "cc-cli.exe is exiting to complete update.");
+                                        ExitProgram(true, "cc-cli.exe is exiting to complete the update.");
                                     }
                                 }
                                 else
@@ -231,7 +231,7 @@ namespace Hypertherm.CcCli
                     if(UpdateIsAvailableConversation(updater))
                     {
                         Thread.Sleep(5000);
-                        ExitProgram(true, "cc-cli.exe is exiting to complete update.");
+                        ExitProgram(true, "cc-cli.exe is exiting to complete the update.");
                     }
                     _logger.Log("Disable update notifications? ('y/yes' or 'n/no')", MessageType.DisplayText);
                     
